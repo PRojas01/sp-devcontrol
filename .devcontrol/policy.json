@@ -1,0 +1,50 @@
+{
+  "protectedPaths": [
+    ".env",
+    ".env.local",
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "Dockerfile",
+    "docker-compose.yml",
+    ".github/workflows/**",
+    "src/auth/**",
+    "src/payments/**",
+    "src/database/**",
+    "src/config/**",
+    "prisma/schema.prisma",
+    "src/core/**"
+  ],
+  "blockedCommands": [
+    "rm -rf",
+    "git reset --hard",
+    "git clean -fd",
+    "git push --force",
+    "docker compose down -v",
+    "npm uninstall",
+    "pnpm remove",
+    "yarn remove"
+  ],
+  "approvedCommands": [
+    "custom deploy local"
+  ],
+  "levels": {
+    "low": [
+      "docs",
+      "textos",
+      "estilos menores"
+    ],
+    "medium": [
+      "componentes nuevos",
+      "refactor local"
+    ],
+    "high": [
+      "dependencias",
+      "configuracion",
+      "database",
+      "auth",
+      "payments"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+[
+  ".env",
+  ".env.local",
+  "package.json",
+  "package-lock.json",
+  "pnpm-lock.yaml",
+  "yarn.lock",
+  "Dockerfile",
+  "docker-compose.yml",
+  ".github/workflows/**",
+  "src/auth/**",
+  "src/payments/**",
+  "src/database/**",
+  "src/config/**",
+  "prisma/schema.prisma"
+]

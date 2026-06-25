@@ -1,0 +1,62 @@
+{
+  "name": "sp-devcontrol",
+  "version": "1.0.0",
+  "description": "Local governance layer for AI-assisted software projects",
+  "type": "module",
+  "bin": {
+    "sp-devcontrol": "./dist/cli.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "node dist/cli.js",
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "author": "SolucionesPro",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SolucionesPro/sp-devcontrol.git"
+  },
+  "keywords": [
+    "governance",
+    "ai-development",
+    "cli",
+    "devops",
+    "code-quality",
+    "security",
+    "compliance",
+    "agentic",
+    "cursor",
+    "claude",
+    "copilot"
+  ],
+  "dependencies": {
+    "boxen": "^8.0.1",
+    "chalk": "^5.4.1",
+    "chokidar": "^4.0.3",
+    "cli-table3": "^0.6.5",
+    "commander": "^13.1.0",
+    "diff": "^8.0.2",
+    "execa": "^9.5.2",
+    "inquirer": "^12.5.2",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@types/diff": "^7.0.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.2.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,1296 @@
+Diseño de la aplicación local: DevControl Local
+1. Concepto general
+
+DevControl Local sería una aplicación instalada en la computadora del usuario para controlar proyectos desarrollados con IA antes, durante y después del uso de un editor agéntico como Cursor, Claude Code, GitHub Copilot, Windsurf, VS Code u otros.
+
+No debe comportarse como otro editor de código. Su función debe ser:
+
+Inicializar, proteger, auditar y controlar el proyecto antes de que el agente IA pueda modificar archivos.
+
+La aplicación debe arrancar antes del primer prompt, cargar las reglas del proyecto, conectar con el repositorio, validar el stack, proteger archivos críticos y registrar toda interacción técnica relevante.
+
+2. Problema que resuelve
+
+La mayoría de editores agénticos empiezan desde el prompt:
+
+Usuario → Prompt → Agente IA → Cambios en archivos
+
+Ese flujo es débil porque el control llega tarde.
+
+El flujo correcto debería ser:
+
+DevControl Local → Validación del proyecto → Reglas activas → Editor agéntico → Prompt → Plan → Validación → Cambio controlado
+
+La aplicación debe actuar como sistema de precontrol.
+
+3. Objetivo técnico
+
+La aplicación debe garantizar que, antes de escribir el primer prompt:
+
+el proyecto tenga estructura reconocida;
+exista control de versiones;
+haya reglas para agentes;
+se definan archivos protegidos;
+se registre el stack autorizado;
+se limite el alcance de los cambios;
+se preparen hooks de validación;
+se active monitoreo de archivos;
+se bloquee la eliminación peligrosa;
+se cree una memoria técnica del proyecto;
+se conecte con el editor o herramienta agéntica;
+se genere un registro de auditoría.
+4. Nombre sugerido
+DevControl Local
+
+Subtítulo:
+
+Control local para proyectos de software desarrollados con IA.
+
+También podrías usar:
+
+AgentGuard Local
+CodeSafe AI
+DevGuard IA
+PromptSafe Dev
+SolucionesPro DevControl IA
+
+Mi recomendación: DevControl IA para marca comercial y DevControl Local para la aplicación instalable.
+
+5. Tipo de aplicación
+
+Debe tener tres capas:
+
+Capa	Función
+Aplicación de escritorio	Interfaz visual para configurar, revisar y aprobar
+Servicio local / daemon	Monitorea archivos, Git, reglas, permisos y eventos
+CLI / extensión	Conecta con editores, terminal, hooks y agentes
+
+Arquitectura recomendada:
+
+DevControl Local
+├── Desktop App
+│   ├── Panel de proyecto
+│   ├── Reglas del agente
+│   ├── Archivos protegidos
+│   ├── Riesgos
+│   ├── Historial
+│   └── Aprobaciones
+│
+├── Local Daemon
+│   ├── Monitoreo de archivos
+│   ├── Control de Git
+│   ├── Validador de reglas
+│   ├── Detector de cambios peligrosos
+│   ├── Registro de auditoría
+│   └── Motor de políticas
+│
+├── CLI
+│   ├── devcontrol init
+│   ├── devcontrol start
+│   ├── devcontrol check
+│   ├── devcontrol lock
+│   ├── devcontrol audit
+│   └── devcontrol launch cursor
+│
+└── Integraciones
+    ├── Cursor Rules
+    ├── Claude Code settings
+    ├── Copilot instructions
+    ├── Git hooks
+    ├── VS Code extension
+    ├── MCP server/proxy
+    └── CI/CD
+6. Punto crítico: arrancar antes del primer prompt
+
+Para lograrlo de forma realista, no basta con una app abierta. Se necesita un mecanismo de arranque controlado.
+
+Flujo recomendado
+1. Usuario abre DevControl Local
+2. Selecciona o crea proyecto
+3. DevControl valida estructura
+4. DevControl instala reglas y hooks
+5. DevControl inicia monitoreo local
+6. DevControl lanza el editor agéntico
+7. El editor abre el proyecto ya protegido
+8. El usuario recién puede enviar prompts
+
+El editor no debería abrirse directamente desde el acceso normal. Debe abrirse desde DevControl:
+
+devcontrol launch cursor
+devcontrol launch claude
+devcontrol launch vscode
+
+Esto permite asegurar que el proyecto ya esté bajo control antes de que el agente actúe.
+
+7. Advertencia técnica importante
+
+No todos los editores permiten interceptar directamente el texto del prompt antes de enviarlo al modelo.
+
+Por eso, la aplicación debe controlar cuatro puntos posibles:
+
+Nivel de control	Qué controla	Viabilidad
+Antes del editor	Valida proyecto, reglas y permisos	Alta
+Dentro del editor	Extensión, reglas, instrucciones del agente	Media
+Durante ejecución	Monitoreo de archivos y comandos	Alta
+Después del cambio	Git diff, tests, auditoría, aprobación	Alta
+
+El control total del prompt solo sería posible si:
+
+el editor permite extensión oficial;
+el agente usa MCP;
+el usuario usa una CLI controlada;
+el tráfico pasa por un gateway propio;
+o DevControl ofrece su propio panel de prompts.
+
+Por eso el diseño correcto debe ser híbrido.
+
+8. Arquitectura funcional
+Módulo 1: Inicializador del proyecto
+
+Este módulo se ejecuta antes de cualquier trabajo con IA.
+
+Funciones:
+
+detectar tipo de proyecto;
+validar stack;
+crear carpeta /docs;
+generar reglas para agentes;
+crear archivo de configuración;
+instalar hooks de Git;
+activar changelog;
+registrar baseline inicial;
+crear snapshot del estado actual.
+
+Comando:
+
+devcontrol init
+
+Archivos generados:
+
+project-root/
+├── devcontrol.config.json
+├── docs/
+│   ├── 00-project-brief.md
+│   ├── 01-requirements.md
+│   ├── 02-architecture.md
+│   ├── 03-data-model.md
+│   ├── 04-ui-system.md
+│   ├── 05-api-contracts.md
+│   ├── 06-security-rules.md
+│   ├── 07-agent-rules.md
+│   ├── 08-change-log.md
+│   └── 09-risk-register.md
+├── .cursor/
+│   └── rules/
+├── .github/
+│   ├── copilot-instructions.md
+│   └── CODEOWNERS
+├── .claude/
+│   └── settings.json
+├── .devcontrol/
+│   ├── audit-log.jsonl
+│   ├── baseline.json
+│   ├── protected-files.json
+│   ├── sessions/
+│   └── snapshots/
+└── .git/hooks/
+Módulo 2: Motor de políticas
+
+Este es el núcleo de la aplicación.
+
+Debe decidir qué puede o no puede hacer el agente.
+
+Ejemplo de niveles:
+
+Nivel	Acción	Permiso
+Verde	Cambiar textos visibles, estilos menores, documentación	Permitido
+Amarillo	Crear componentes, endpoints o servicios nuevos	Requiere plan
+Naranja	Modificar dependencias, estructura o modelos de datos	Requiere aprobación
+Rojo	Eliminar archivos, tocar auth, pagos, base de datos o producción	Bloqueado
+Negro	Ejecutar comandos destructivos, borrar datos o cambiar producción	Prohibido
+Módulo 3: Control de archivos protegidos
+
+La aplicación debe permitir definir archivos y carpetas que el agente no puede modificar sin autorización.
+
+Ejemplo:
+
+{
+  "protectedFiles": [
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    ".env",
+    ".env.local",
+    "prisma/schema.prisma",
+    "src/auth/**",
+    "src/payments/**",
+    "src/database/**",
+    "src/config/**",
+    "docker-compose.yml",
+    "Dockerfile",
+    ".github/workflows/**"
+  ],
+  "protectedActions": [
+    "delete_file",
+    "rename_file",
+    "modify_dependencies",
+    "run_migration",
+    "change_auth_logic",
+    "change_payment_logic",
+    "modify_env",
+    "push_to_main"
+  ]
+}
+
+Regla clave:
+
+Ningún agente puede eliminar, renombrar o sobrescribir archivos protegidos sin aprobación explícita.
+
+Módulo 4: Monitor de cambios en tiempo real
+
+Debe observar el sistema de archivos mientras el editor agéntico trabaja.
+
+Eventos detectados:
+
+archivo creado;
+archivo modificado;
+archivo eliminado;
+carpeta eliminada;
+cambio en dependencias;
+cambio en configuración;
+cambio en rutas;
+cambio en base de datos;
+cambio en auth;
+cambio masivo de archivos;
+reescritura completa de archivo;
+modificación de archivos protegidos.
+
+Ejemplo de alerta:
+
+ALERTA CRÍTICA
+
+El agente modificó un archivo protegido:
+
+Archivo:
+src/auth/session.ts
+
+Tipo de cambio:
+Reescritura completa
+
+Riesgo:
+Alto
+
+Acción recomendada:
+Bloquear cambio y restaurar desde snapshot.
+
+Opciones:
+[Ver diff] [Aprobar] [Revertir] [Bloquear agente]
+Módulo 5: Control de comandos
+
+Los agentes agénticos pueden ejecutar comandos en terminal. Esto es peligroso.
+
+DevControl debe bloquear o pedir aprobación para comandos como:
+
+rm -rf
+del /s
+git reset --hard
+git clean -fd
+npm uninstall
+pnpm remove
+npm install
+pnpm add
+prisma migrate
+docker compose down -v
+drop database
+truncate table
+git push --force
+
+Clasificación:
+
+Comando	Riesgo	Acción
+npm run lint	Bajo	Permitir
+npm test	Bajo	Permitir
+npm install	Medio	Pedir aprobación
+prisma migrate dev	Alto	Pedir aprobación reforzada
+rm -rf	Crítico	Bloquear
+git push --force	Crítico	Bloquear
+docker compose down -v	Crítico	Bloquear
+9. Flujo de uso de la aplicación
+Primer uso
+1. Instalar DevControl Local
+2. Crear cuenta local o modo sin cuenta
+3. Seleccionar carpeta del proyecto
+4. Ejecutar diagnóstico inicial
+5. Elegir tipo de proyecto
+6. Definir stack autorizado
+7. Definir editor agéntico principal
+8. Crear reglas
+9. Instalar hooks
+10. Crear snapshot inicial
+11. Lanzar editor desde DevControl
+Uso diario
+1. Abrir DevControl Local
+2. Seleccionar proyecto
+3. DevControl revisa integridad
+4. DevControl activa daemon
+5. Usuario abre editor desde DevControl
+6. Usuario define tarea
+7. DevControl valida alcance
+8. Agente ejecuta
+9. DevControl detecta cambios
+10. DevControl genera diff
+11. Usuario aprueba, revierte o ajusta
+12. DevControl registra changelog
+10. Pantallas principales de la aplicación
+Pantalla 1: Dashboard del proyecto
+
+Debe mostrar:
+
+estado del proyecto;
+editor conectado;
+reglas activas;
+archivos protegidos;
+último snapshot;
+cambios pendientes;
+riesgos abiertos;
+costo estimado de sesión;
+pruebas disponibles.
+
+Ejemplo:
+
+Proyecto: AutoMantPro App
+Estado: Protegido
+Editor: Cursor conectado
+Git: Rama feature/diagnostico-ia
+Reglas: Activas
+Archivos protegidos: 18
+Último snapshot: 13/06/2026 - 17:40
+Cambios pendientes: 3
+Riesgos: 1 medio
+Pantalla 2: Asistente de configuración inicial
+
+Debe hacer preguntas técnicas, no genéricas:
+
+¿Qué tipo de proyecto es?
+
+[ ] SaaS web
+[ ] App móvil
+[ ] Dashboard empresarial
+[ ] API backend
+[ ] Landing page
+[ ] Sistema interno
+[ ] Plugin/extensión
+[ ] Otro
+
+Luego:
+
+Stack autorizado:
+
+Frontend:
+[Next.js] [React] [Vue] [Angular] [Flutter]
+
+Backend:
+[NestJS] [Express] [FastAPI] [Laravel] [Django]
+
+Base de datos:
+[PostgreSQL] [MySQL] [SQLite] [Firebase] [Supabase]
+
+UI:
+[shadcn/ui] [Material UI] [Tailwind] [Bootstrap] [Diseño propio]
+Pantalla 3: Reglas del agente
+
+Debe permitir activar o desactivar reglas.
+
+Reglas obligatorias:
+
+[✓] No eliminar archivos sin aprobación.
+[✓] No modificar dependencias sin aprobación.
+[✓] No cambiar stack definido.
+[✓] No modificar autenticación sin aprobación.
+[✓] No modificar base de datos sin aprobación.
+[✓] No modificar pagos sin aprobación.
+[✓] No reescribir archivos completos sin justificar.
+[✓] No tocar producción.
+[✓] No ejecutar comandos destructivos.
+[✓] Antes de modificar más de 3 archivos, exigir plan.
+[✓] Después de cada cambio, exigir resumen y pruebas.
+Pantalla 4: Archivos protegidos
+
+Debe mostrar una tabla:
+
+Archivo/carpeta	Riesgo	Regla
+package.json	Alto	Requiere aprobación
+.env	Crítico	Bloqueado
+prisma/schema.prisma	Alto	Requiere aprobación
+src/auth/**	Crítico	Requiere aprobación reforzada
+.github/workflows/**	Alto	Requiere aprobación
+Pantalla 5: Monitor de cambios
+
+Debe mostrar en tiempo real:
+
+Archivo	Acción	Riesgo	Estado
+src/components/Button.tsx	Modificado	Bajo	Permitido
+package.json	Modificado	Alto	Pendiente
+src/auth/session.ts	Modificado	Crítico	Bloqueado
+src/pages/index.tsx	Reescrito	Medio	Revisar
+Pantalla 6: Revisión de diff
+
+Debe mostrar:
+
+Cambio detectado:
+src/components/DashboardCard.tsx
+
+Tipo:
+Modificación parcial
+
+Riesgo:
+Bajo
+
+Motivo declarado por el agente:
+Mejorar jerarquía visual del dashboard.
+
+Validaciones:
+[✓] No toca archivos protegidos
+[✓] No cambia dependencias
+[✓] No rompe TypeScript
+[ ] No probado visualmente
+
+Opciones:
+[Aprobar] [Revertir] [Pedir corrección] [Abrir en editor]
+Pantalla 7: Registro de auditoría
+
+Debe registrar:
+
+fecha;
+usuario;
+editor usado;
+modelo usado, si se conoce;
+prompt o resumen del prompt;
+archivos tocados;
+comandos ejecutados;
+pruebas realizadas;
+aprobación humana;
+resultado;
+rollback, si existió.
+
+Ejemplo:
+
+{
+  "date": "2026-06-13T17:45:00",
+  "project": "AutoMantPro",
+  "editor": "Cursor",
+  "task": "Crear componente de diagnóstico inicial",
+  "filesChanged": [
+    "src/modules/diagnosis/DiagnosisForm.tsx",
+    "src/modules/diagnosis/types.ts"
+  ],
+  "commands": [
+    "npm run typecheck"
+  ],
+  "riskLevel": "medium",
+  "approval": "approved",
+  "reviewer": "Pedro",
+  "result": "accepted"
+}
+11. Integración con editores agénticos
+A. Cursor
+
+DevControl debe generar:
+
+.cursor/rules/devcontrol-agent-rules.mdc
+
+Contenido base:
+
+# DevControl Agent Rules
+
+You are working inside a protected software project.
+
+Mandatory rules:
+
+1. Do not delete files unless the user explicitly approves.
+2. Do not modify package files unless the task requires it and approval is given.
+3. Do not change the selected stack.
+4. Do not modify authentication, payments, database schemas, environment files or deployment files without approval.
+5. Before editing more than 3 files, present a plan.
+6. Prefer small, focused changes.
+7. Never rewrite complete files when a partial change is enough.
+8. After every change, summarize:
+   - files modified;
+   - reason for change;
+   - risk level;
+   - tests needed.
+9. Follow the architecture in `/docs/02-architecture.md`.
+10. Follow the UI system in `/docs/04-ui-system.md`.
+B. Claude Code
+
+DevControl debe generar configuración de permisos:
+
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Edit",
+      "Bash(npm run lint)",
+      "Bash(npm run test)",
+      "Bash(npm run typecheck)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git push --force:*)",
+      "Bash(docker compose down -v:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(pnpm remove:*)",
+      "Edit(.env)",
+      "Edit(.env.local)",
+      "Edit(src/auth/**)",
+      "Edit(src/payments/**)"
+    ]
+  }
+}
+
+También debe crear:
+
+CLAUDE.md
+
+Con reglas del proyecto.
+
+C. GitHub Copilot
+
+Debe generar:
+
+.github/copilot-instructions.md
+
+Contenido:
+
+# Copilot Instructions
+
+This repository is controlled by DevControl Local.
+
+Follow these rules:
+
+- Do not suggest deleting files unless explicitly requested.
+- Do not modify dependencies without explaining why.
+- Follow TypeScript strict mode.
+- Follow the architecture in `/docs/02-architecture.md`.
+- Follow the UI system in `/docs/04-ui-system.md`.
+- Do not modify authentication, database, payments, deployment, or environment files without approval.
+- Prefer small pull requests.
+- Include tests or explain why tests are not applicable.
+D. VS Code
+
+Crear extensión propia:
+
+DevControl VS Code Extension
+
+Funciones:
+
+mostrar estado protegido;
+bloquear edición directa de archivos críticos;
+mostrar alertas de riesgo;
+abrir panel de aprobación;
+mostrar diff;
+conectar con daemon local;
+detectar si el usuario abrió el proyecto sin DevControl.
+12. Regla central antes del primer prompt
+
+DevControl debe obligar al usuario a definir una tarea antes de abrir el agente.
+
+Ejemplo:
+
+Nueva sesión IA
+
+Objetivo de la sesión:
+[ Crear formulario de diagnóstico inicial ]
+
+Alcance permitido:
+[ src/modules/diagnosis/** ]
+
+Archivos bloqueados:
+[ package.json ]
+[ prisma/schema.prisma ]
+[ src/auth/** ]
+[ .env ]
+
+Máximo de archivos modificables:
+[ 5 ]
+
+Tipo de riesgo permitido:
+[ Bajo / Medio ]
+
+Pruebas obligatorias:
+[ npm run typecheck ]
+[ npm run lint ]
+
+Editor:
+[ Cursor ]
+
+Botón:
+[ Iniciar sesión controlada ]
+
+Después de eso, DevControl genera un prompt inicial obligatorio.
+
+13. Prompt inicial obligatorio
+
+Antes de que el usuario escriba cualquier prompt libre, DevControl debe inyectar o copiar un bloque inicial:
+
+# Sesión controlada por DevControl
+
+Trabajarás bajo las siguientes restricciones:
+
+## Objetivo
+Crear formulario de diagnóstico inicial.
+
+## Alcance permitido
+Solo puedes modificar archivos dentro de:
+
+- `src/modules/diagnosis/**`
+
+## Archivos prohibidos
+No puedes modificar:
+
+- `package.json`
+- `pnpm-lock.yaml`
+- `.env`
+- `.env.local`
+- `src/auth/**`
+- `prisma/schema.prisma`
+- `.github/workflows/**`
+
+## Reglas
+1. No elimines archivos.
+2. No cambies dependencias.
+3. No modifiques configuración global.
+4. No cambies autenticación.
+5. No cambies base de datos.
+6. No reescribas archivos completos si puedes hacer cambios parciales.
+7. Antes de modificar archivos, presenta un plan.
+8. Indica los archivos que tocarás.
+9. Espera aprobación antes de ejecutar cambios.
+10. Al finalizar, entrega resumen técnico y pruebas recomendadas.
+
+## Documentos obligatorios
+Lee primero:
+
+- `/docs/00-project-brief.md`
+- `/docs/02-architecture.md`
+- `/docs/04-ui-system.md`
+- `/docs/07-agent-rules.md`
+14. Sistema de aprobación
+
+El agente no debería poder hacer cambios críticos directamente.
+
+Aprobación simple
+
+Para cambios medios:
+
+El agente quiere modificar 4 archivos.
+
+Riesgo: Medio
+
+Archivos:
+- src/modules/diagnosis/DiagnosisForm.tsx
+- src/modules/diagnosis/types.ts
+- src/modules/diagnosis/validation.ts
+- src/app/diagnosis/page.tsx
+
+¿Aprobar?
+
+[ Aprobar una vez ] [ Rechazar ] [ Editar alcance ]
+Aprobación reforzada
+
+Para cambios altos:
+
+Cambio de alto riesgo detectado:
+
+Archivo:
+package.json
+
+Acción:
+Agregar dependencia zod
+
+Riesgo:
+Alto
+
+Justificación:
+El agente necesita validación de formularios.
+
+Opciones:
+[ Aprobar dependencia ] [ Rechazar ] [ Solicitar alternativa sin dependencia ]
+Bloqueo directo
+
+Para cambios críticos:
+
+Acción bloqueada:
+
+Comando:
+rm -rf src/modules
+
+Motivo:
+Eliminación masiva de archivos.
+
+Resultado:
+Bloqueado automáticamente.
+15. Control de stack
+
+DevControl debe impedir que el agente cambie la tecnología sin permiso.
+
+Ejemplo:
+
+{
+  "projectType": "saas-web",
+  "authorizedStack": {
+    "frontend": "Next.js",
+    "language": "TypeScript",
+    "ui": "Tailwind + shadcn/ui",
+    "backend": "Next.js API Routes",
+    "database": "PostgreSQL",
+    "orm": "Prisma",
+    "auth": "Auth.js",
+    "testing": ["Vitest", "Playwright"],
+    "packageManager": "pnpm"
+  },
+  "forbiddenStackChanges": [
+    "replace_next_with_vite",
+    "replace_prisma_with_sequelize",
+    "replace_tailwind_with_bootstrap",
+    "replace_postgres_with_mongodb",
+    "replace_auth_provider"
+  ]
+}
+
+Alerta:
+
+El agente intenta introducir una tecnología fuera del stack autorizado:
+
+Detectado:
+Material UI
+
+Stack autorizado:
+Tailwind + shadcn/ui
+
+Acción:
+Bloqueado hasta aprobación.
+16. Control de UI para evitar diseños genéricos
+
+Este módulo es importante porque uno de los problemas fuertes es la mala calidad visual.
+
+DevControl debe exigir un archivo:
+
+docs/04-ui-system.md
+
+Contenido mínimo:
+
+# Sistema UI del proyecto
+
+## Principios visuales
+- Interfaz limpia, profesional y funcional.
+- Evitar dashboards genéricos.
+- Priorizar jerarquía visual.
+- Usar componentes reutilizables.
+- Mantener coherencia entre pantallas.
+
+## Tipografía
+- Fuente principal:
+- Tamaños:
+- Pesos:
+
+## Colores
+- Primario:
+- Secundario:
+- Fondo:
+- Texto:
+- Estados:
+
+## Componentes permitidos
+- Button
+- Card
+- Input
+- Modal
+- Table
+- Badge
+- Sidebar
+- Navbar
+
+## Reglas para IA
+- No crear nuevos estilos si ya existe un componente reutilizable.
+- No usar colores arbitrarios.
+- No crear botones sin jerarquía.
+- No crear formularios sin estados de error, carga y éxito.
+- No crear pantallas sin estructura responsive.
+
+Además, el monitor debe detectar:
+
+colores hardcodeados;
+componentes duplicados;
+estilos inline innecesarios;
+clases Tailwind excesivas;
+pantallas sin responsive;
+botones sin estados;
+formularios sin validación;
+tablas sin loading/error/empty state.
+17. Control de contexto
+
+La aplicación debe tener una memoria local del proyecto, no una memoria dependiente del chat.
+
+Archivos de contexto
+.devcontrol/context/
+├── project-summary.md
+├── current-sprint.md
+├── active-decisions.md
+├── forbidden-changes.md
+├── known-errors.md
+├── completed-modules.md
+└── pending-tasks.md
+
+Antes de cada sesión, DevControl debe generar un resumen compacto:
+
+# Contexto activo para agente
+
+Proyecto:
+AutoMantPro
+
+Estado actual:
+Módulo de vehículos completo.
+Módulo de diagnóstico en desarrollo.
+
+No modificar:
+- autenticación
+- estructura de base de datos
+- package.json
+
+Decisiones vigentes:
+- UI con Tailwind + shadcn/ui
+- formularios con react-hook-form
+- validaciones con Zod
+- rutas bajo app router
+
+Errores conocidos:
+- No duplicar VehicleForm
+- No crear otro cliente de Supabase
+- No mover componentes globales
+
+Esto reduce pérdida de contexto y consumo de tokens.
+
+18. Control de costos de tokens
+
+Para editores cerrados, DevControl no siempre podrá medir tokens exactos. Pero sí puede controlar comportamiento.
+
+Debe registrar:
+
+duración de sesión;
+número de archivos leídos;
+número de archivos modificados;
+prompts enviados desde panel propio;
+tamaño del contexto;
+número de iteraciones;
+modelo usado, si está disponible;
+costo estimado, si el proveedor lo permite.
+
+Reglas de eficiencia:
+
+[✓] No usar modo agente para cambios menores.
+[✓] No cargar todo el repositorio si la tarea afecta un módulo.
+[✓] No permitir prompts sin alcance.
+[✓] No permitir modificaciones en más de 5 archivos sin plan.
+[✓] No permitir refactorizaciones globales sin tarea formal.
+19. Control de Git obligatorio
+
+DevControl debe exigir Git activo.
+
+Si el proyecto no tiene Git:
+
+Este proyecto no tiene control de versiones.
+
+No se recomienda usar un agente IA sin Git.
+
+Opciones:
+[Inicializar Git] [Cancelar]
+
+Antes de iniciar sesión IA:
+
+git status
+
+Si hay cambios sin guardar:
+
+Hay cambios sin commit antes de iniciar la sesión.
+
+Opciones:
+[Crear snapshot] [Crear commit] [Continuar sin protección — no recomendado]
+
+Regla fuerte:
+
+No se debe iniciar una sesión agéntica si no existe posibilidad de rollback.
+
+20. Git hooks que debe instalar
+Pre-commit
+
+Debe ejecutar:
+
+npm run lint
+npm run typecheck
+gitleaks detect
+Pre-push
+
+Debe ejecutar:
+
+npm test
+npm run build
+Hook personalizado de DevControl
+
+Debe bloquear:
+
+eliminación masiva;
+modificación de archivos protegidos;
+secretos;
+cambios en lockfiles sin aprobación;
+cambios en .env;
+commits directos a main;
+commits sin mensaje estructurado.
+
+Ejemplo:
+
+devcontrol check --pre-commit
+21. Formato de configuración
+
+Archivo principal:
+
+{
+  "projectName": "AutoMantPro",
+  "projectType": "mobile-app",
+  "controlLevel": "strict",
+  "defaultEditor": "cursor",
+  "authorizedStack": {
+    "frontend": "Flutter",
+    "backend": "Firebase",
+    "database": "Firestore",
+    "auth": "Firebase Auth",
+    "notifications": "FCM"
+  },
+  "agentRules": {
+    "requirePlanBeforeChanges": true,
+    "maxFilesWithoutApproval": 3,
+    "blockFileDeletion": true,
+    "blockDependencyChanges": true,
+    "blockProductionCommands": true,
+    "requireSummaryAfterChanges": true,
+    "requireTestsAfterChanges": true
+  },
+  "protectedPaths": [
+    ".env",
+    ".env.local",
+    "firebase.json",
+    "firestore.rules",
+    "lib/auth/**",
+    "lib/services/payment/**",
+    "pubspec.yaml"
+  ],
+  "allowedCommands": [
+    "flutter analyze",
+    "flutter test",
+    "npm run lint",
+    "npm run typecheck"
+  ],
+  "blockedCommands": [
+    "rm -rf",
+    "git reset --hard",
+    "git push --force",
+    "firebase deploy",
+    "docker compose down -v"
+  ]
+}
+22. Modos de operación
+Modo Básico
+
+Para estudiantes o emprendedores:
+
+Git obligatorio;
+reglas del agente;
+archivos protegidos;
+monitoreo de cambios;
+changelog automático.
+Modo Profesional
+
+Para freelancers, productoras o pymes:
+
+todo lo anterior;
+revisión de seguridad;
+control de dependencias;
+control de UI;
+PR obligatorio;
+auditoría por sesión;
+snapshots.
+Modo Empresa
+
+Para equipos:
+
+roles;
+aprobadores;
+políticas por proyecto;
+integración con GitHub/GitLab;
+métricas;
+logs centralizados;
+SSO;
+control multiusuario.
+23. MVP recomendado
+
+No intentes construir todo al inicio. El MVP debe enfocarse en el dolor más grave: evitar que el agente destruya, desordene o cambie cosas no solicitadas.
+
+MVP 1: Control local de proyecto IA
+
+Funciones mínimas:
+
+1. Crear proyecto controlado.
+2. Generar reglas para Cursor, Claude y Copilot.
+3. Crear estructura `/docs`.
+4. Definir archivos protegidos.
+5. Instalar Git hooks.
+6. Crear snapshot inicial.
+7. Lanzar editor desde DevControl.
+8. Monitorear cambios de archivos.
+9. Alertar cambios peligrosos.
+10. Mostrar diff.
+11. Revertir cambios.
+12. Registrar auditoría.
+
+Con eso ya tienes un producto valioso.
+
+24. Stack técnico para construir DevControl Local
+Opción recomendada
+Parte	Tecnología
+Desktop app	Tauri
+Lenguaje UI	React + TypeScript
+Backend local	Rust
+CLI	Rust
+Base local	SQLite
+Monitoreo archivos	notify-rs
+Git	libgit2
+Configuración	JSON/YAML
+Extensión VS Code	TypeScript
+Empaquetado	Tauri Bundler
+Sistemas	Windows, macOS, Linux
+
+Por qué Tauri:
+
+más liviano que Electron;
+buen acceso al sistema local;
+buen rendimiento;
+binarios pequeños;
+permite UI moderna;
+Rust aporta seguridad para daemon local.
+Alternativa rápida
+Parte	Tecnología
+Desktop app	Electron
+UI	React
+Backend local	Node.js
+CLI	Node.js
+Base local	SQLite
+Monitoreo	chokidar
+Git	simple-git
+
+Más rápido para prototipar, pero más pesado.
+
+25. Diseño técnico interno
+DevControl Local
+├── core/
+│   ├── policy-engine
+│   ├── risk-scanner
+│   ├── file-monitor
+│   ├── git-controller
+│   ├── command-guard
+│   ├── snapshot-manager
+│   ├── audit-logger
+│   └── context-builder
+│
+├── integrations/
+│   ├── cursor
+│   ├── claude-code
+│   ├── github-copilot
+│   ├── vscode
+│   ├── git
+│   └── mcp
+│
+├── desktop/
+│   ├── dashboard
+│   ├── rules
+│   ├── protected-files
+│   ├── diff-viewer
+│   ├── approvals
+│   └── audit-log
+│
+├── cli/
+│   ├── init
+│   ├── start
+│   ├── check
+│   ├── launch
+│   ├── approve
+│   └── rollback
+│
+└── storage/
+    ├── sqlite
+    ├── config
+    ├── snapshots
+    └── logs
+26. Modelo de datos básico
+Tabla: projects
+CREATE TABLE projects (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  path TEXT NOT NULL,
+  project_type TEXT,
+  stack TEXT,
+  control_level TEXT,
+  created_at TEXT,
+  updated_at TEXT
+);
+Tabla: sessions
+CREATE TABLE sessions (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  editor TEXT,
+  goal TEXT,
+  allowed_scope TEXT,
+  risk_level TEXT,
+  started_at TEXT,
+  ended_at TEXT
+);
+Tabla: file_events
+CREATE TABLE file_events (
+  id TEXT PRIMARY KEY,
+  session_id TEXT,
+  file_path TEXT,
+  action TEXT,
+  risk_level TEXT,
+  approved INTEGER,
+  created_at TEXT
+);
+Tabla: approvals
+CREATE TABLE approvals (
+  id TEXT PRIMARY KEY,
+  session_id TEXT,
+  action TEXT,
+  file_path TEXT,
+  reason TEXT,
+  approved_by TEXT,
+  approved_at TEXT
+);
+Tabla: audit_logs
+CREATE TABLE audit_logs (
+  id TEXT PRIMARY KEY,
+  project_id TEXT,
+  session_id TEXT,
+  event_type TEXT,
+  payload TEXT,
+  created_at TEXT
+);
+27. Reglas obligatorias que debe aplicar
+
+Estas son las reglas que debe tener desde la primera versión.
+
+Reglas de proyecto
+1. Todo proyecto debe tener Git activo.
+2. Todo proyecto debe tener snapshot inicial.
+3. Todo proyecto debe tener stack autorizado.
+4. Todo proyecto debe tener reglas del agente.
+5. Todo proyecto debe tener archivos protegidos.
+6. Todo proyecto debe tener documentación mínima.
+Reglas del agente
+1. No eliminar archivos sin aprobación.
+2. No modificar dependencias sin aprobación.
+3. No cambiar arquitectura sin aprobación.
+4. No modificar auth, pagos, base de datos ni deploy sin aprobación.
+5. No ejecutar comandos destructivos.
+6. No reescribir archivos completos sin justificar.
+7. No tocar más de 3 archivos sin plan.
+8. No introducir librerías fuera del stack.
+9. No crear UI genérica fuera del sistema visual.
+10. No finalizar sin resumen técnico.
+Reglas de seguridad
+1. Bloquear `.env`.
+2. Bloquear secretos en commits.
+3. Bloquear comandos destructivos.
+4. Bloquear pushes forzados.
+5. Bloquear cambios en producción.
+6. Validar dependencias nuevas.
+7. Detectar credenciales expuestas.
+Reglas de trazabilidad
+1. Todo cambio debe tener sesión asociada.
+2. Toda sesión debe tener objetivo.
+3. Todo cambio crítico debe tener aprobación.
+4. Todo rollback debe quedar registrado.
+5. Todo prompt importante debe quedar resumido.
+6. Todo cambio aprobado debe actualizar changelog.
+28. Diferenciador del producto
+
+La mayoría de herramientas actuales ayudan a escribir código, revisar PRs o detectar vulnerabilidades.
+
+DevControl Local no compite con ellas. Las coordina.
+
+Su propuesta sería:
+
+Antes de usar IA para programar, DevControl prepara, protege y gobierna tu proyecto para evitar cambios no solicitados, pérdida de contexto, eliminación de archivos, mala arquitectura, interfaces genéricas y costos innecesarios.
+
+29. Propuesta de valor comercial
+Para emprendedores
+
+Evita que tu app creada con IA se vuelva desordenada, insegura y difícil de mantener.
+
+Para freelancers
+
+Entrega proyectos desarrollados con IA con trazabilidad, documentación y control profesional.
+
+Para empresas
+
+Permite que tus equipos usen IA sin perder gobierno técnico, seguridad ni control de cambios.
+
+Para educación
+
+Enseña desarrollo con IA usando reglas, arquitectura, documentación y validación, no solo prompts.
+
+30. Primer prototipo viable
+
+Yo lo construiría en este orden:
+
+Fase 1: CLI
+
+Comandos:
+
+devcontrol init
+devcontrol start
+devcontrol launch cursor
+devcontrol check
+devcontrol snapshot
+devcontrol rollback
+Fase 2: Monitor local
+detectar cambios;
+clasificar riesgo;
+mostrar alertas;
+guardar auditoría.
+Fase 3: Desktop app
+dashboard;
+reglas;
+archivos protegidos;
+diff;
+aprobación;
+historial.
+Fase 4: Integraciones
+Cursor rules;
+Claude settings;
+Copilot instructions;
+VS Code extension;
+MCP server.
+Fase 5: Producto comercial
+plantillas por stack;
+planes por tipo de usuario;
+reportes;
+auditoría;
+integración con GitHub.
+31. Definición final del producto
+
+DevControl Local es una aplicación de instalación local que se ejecuta antes del editor agéntico y controla el entorno de desarrollo con IA mediante reglas, permisos, archivos protegidos, monitoreo de cambios, Git hooks, auditoría, contexto técnico y validaciones automáticas.
+
+Su principio central:
+
+La IA puede asistir en el desarrollo, pero no debe operar sin arquitectura, límites, trazabilidad ni aprobación.
+
+Ese es el enfoque correcto. No es otro editor. Es la capa de control técnico para programar con IA de forma segura y profesional.

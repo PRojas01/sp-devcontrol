@@ -1,0 +1,126 @@
+{
+  "project": "SP-DevControl",
+  "version": "1.0.0",
+  "createdAt": "2026-06-13T16:17:55.283Z",
+  "stack": ["node", "typescript", "commander", "chokidar", "simple-git"],
+  "agents": {
+    "allowed": [
+      "claude-code",
+      "opencode",
+      "codex"
+    ],
+    "default": "claude-code"
+  },
+  "scope": {
+    "allowed": [
+      "src/",
+      "scripts/",
+      "tests/",
+      "lib/",
+      "docs/"
+    ],
+    "protected": [
+      "dist/",
+      ".env",
+      ".devcontrol/",
+      "*.lock",
+      "node_modules/"
+    ],
+    "watchIgnore": [
+      "node_modules/",
+      "dist/",
+      ".git/",
+      ".devcontrol/"
+    ]
+  },
+  "rules": {
+    "blockDeletes": true,
+    "requireApproval": true,
+    "autoCommit": true,
+    "requireMessage": false,
+    "maxFilesPerChange": 20
+  },
+  "git": {
+    "mainBranch": "main",
+    "rejectedBranchPrefix": "sp-devcontrol/rejected",
+    "commitPrefix": "sp-devcontrol"
+  },
+  "controls": {
+    "security": [
+      "sec-secrets",
+      "sec-sqli",
+      "sec-cmd",
+      "sec-xss",
+      "sec-deps",
+      "sec-prompt-inj"
+    ],
+    "architecture": [],
+    "commits": [
+      "vcs-conv-commits"
+    ],
+    "testing": [
+      "test-no-console"
+    ],
+    "documentation": [],
+    "skills": [
+      "skill-bash",
+      "skill-scope"
+    ],
+    "memory": [
+      "mem-scan",
+      "mem-context"
+    ],
+    "privacy": [
+      "priv-pii",
+      "priv-logging"
+    ]
+  },
+  "skills": {
+    "allowedTools": [
+      "Read",
+      "Write",
+      "Edit",
+      "Grep",
+      "Glob",
+      "Bash"
+    ],
+    "approvalRequired": [
+      "WebSearch",
+      "WebFetch",
+      "Agent"
+    ],
+    "blockedTools": [
+      "computer-use"
+    ],
+    "blockedBashPatterns": [
+      "rm -rf",
+      "del /f /s",
+      "DROP TABLE",
+      "TRUNCATE",
+      "git reset --hard",
+      "git push --force",
+      "format "
+    ],
+    "allowedDomains": [
+      "docs.npmjs.com",
+      "developer.mozilla.org",
+      "github.com",
+      "stackoverflow.com",
+      "nodejs.org"
+    ],
+    "allowedMcpServers": [
+      "filesystem",
+      "git",
+      "sqlite"
+    ]
+  },
+  "memory": {
+    "scanBeforeSession": true,
+    "redactSecretsInContext": true,
+    "requireApprovalForMemoryWrites": true,
+    "retentionDays": 30,
+    "sessionTokenBudget": 12000,
+    "tokenAlertThreshold": 0.85
+  },
+  "structure": "default"
+}

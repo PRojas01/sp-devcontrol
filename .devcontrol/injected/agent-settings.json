@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Grep(*)",
+      "Glob(*)",
+      "Bash(*)"
+    ],
+    "deny": [
+      "computer-use(*)"
+    ]
+  },
+  "mcpServers": {
+    "allowed": [
+      "filesystem",
+      "git",
+      "sqlite"
+    ]
+  },
+  "spDevControl": {
+    "project": "SP-DevControl",
+    "version": "1.0.0",
+    "governanceActive": true
+  }
+}
