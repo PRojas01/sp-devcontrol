@@ -1,1 +1,0 @@
-{"name":"devcontrol","version":"2.0.0","bin":"./cli-full.cjs","pkg":{"targets":["node18-linux-x64","node18-win-x64"]}}

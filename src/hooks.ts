@@ -1,3 +1,11 @@
+/**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
+
 import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'fs'
 import { join, resolve } from 'path'
 import chalk from 'chalk'
@@ -40,7 +48,7 @@ if echo "$PENDING_HIGH" | grep -q "BLOCKED"; then
   echo ""
   echo "To approve:  sp-devcontrol session:change:approve --change-id <id>"
   echo "To reject:   sp-devcontrol session:change:reject --change-id <id>"
-  echo "To bypass:   git commit --no-verify  (registered in audit)"
+  echo "To bypass:   git commit --no-verify  (WARNING: skips all governance hooks)"
   echo ""
   exit 1
 fi
@@ -82,7 +90,7 @@ if echo "$ISSUES" | grep -q "BLOCKED"; then
   echo "$ISSUES" | grep -v "BLOCKED"
   echo ""
   echo "Resolve all pending changes and close sessions before pushing."
-  echo "To bypass:   git push --no-verify  (registered in audit)"
+  echo "To bypass:   git push --no-verify  (WARNING: skips all governance hooks)"
   echo ""
   exit 1
 fi
@@ -101,14 +109,14 @@ if echo "$MSG" | grep -qE "^(Merge |sp-devcontrol)"; then
   exit 0
 fi
 
-if ! echo "$MSG" | grep -qE "^(feat|fix|chore|docs|refactor|test|style|perf|ci|build)(!)?(\([a-zA-Z0-9_-]+\))?: .+"; then
+if ! echo "$MSG" | grep -qE '^(feat|fix|chore|docs|refactor|test|style|perf|ci|build|revert)(!)?(\([a-zA-Z0-9_-]+\))?: .+'; then
   echo ""
   echo "╔══════════════════════════════════════════════════════════════╗"
   echo "║  SP-DevControl: INVALID COMMIT MESSAGE                     ║"
   echo "╚══════════════════════════════════════════════════════════════╝"
   echo ""
   echo "  Expected: type(scope): description"
-  echo "  Types:    feat, fix, chore, docs, refactor, test, style, perf, ci, build"
+  echo "  Types:    feat, fix, chore, docs, refactor, test, style, perf, ci, build, revert"
   echo "  Example:  feat(auth): add session token refresh"
   echo ""
   echo "  Your message: $MSG"

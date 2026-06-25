@@ -33,7 +33,14 @@
     ],
     "outputPath": "release"
   },
-  "author": "SolucionesPro",
+  "author": {
+    "name": "Pedro Rojas",
+    "email": "pedro@solucionespro.com",
+    "url": "https://github.com/pedro-rojas"
+  },
+  "contributors": [
+    "SolucionesPro <info@solucionespro.com> (https://solucionespro.com)"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",

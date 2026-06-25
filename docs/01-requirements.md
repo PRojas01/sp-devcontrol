@@ -34,3 +34,4 @@
 - **Resiliencia**: recuperación automática ante corrupción de base de datos JSON.
 - **Consistencia**: conventional commits validados via hook.
 - **Cumplimiento**: controles mapeados a OWASP Top 10, RGPD, ISO 27001, CWE, SLSA.
+\n---\n_SP-DevControl v2.0.0 — Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador) — MIT License_

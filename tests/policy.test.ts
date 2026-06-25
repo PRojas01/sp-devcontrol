@@ -1,3 +1,11 @@
+/**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
+
 import { mkdtempSync, rmSync, mkdirSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
@@ -78,6 +86,39 @@ describe('policy engine', () => {
     expect(evaluateCommandRisk(dir, 'npm install axios').decision).toBe('ALLOW')
     revokeCommand(dir, 'npm install')
     expect(evaluateCommandRisk(dir, 'npm install axios').decision).toBe('REVIEW')
+    rmSync(dir, { recursive: true, force: true })
+  })
+})
+
+describe('policy security — bypass prevention', () => {
+  it('does NOT allow rm -rf prefixed with approved command substring', () => {
+    const dir = tempProject()
+    initializeControlledProject(dir, { project: 'test-project' })
+    approveCommand(dir, 'git commit')
+    // rm -rf && git commit should NOT be allowed just because "git commit" appears in it
+    const result = evaluateCommandRisk(dir, 'rm -rf / && git commit -m "done"')
+    expect(result.decision).not.toBe('ALLOW')
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('does NOT allow blocked command with extra whitespace', () => {
+    const dir = tempProject()
+    initializeControlledProject(dir, { project: 'test-project' })
+    // "git reset --hard" is blocked; exact match required
+    const result = evaluateCommandRisk(dir, 'git reset --hard')
+    expect(result.decision).toBe('BLOCK')
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('blocks path traversal outside projectRoot', () => {
+    const dir = tempProject()
+    initializeControlledProject(dir, { project: 'test-project' })
+    addProtectedPath(dir, 'src/**')
+    const result = evaluatePathRisk(dir, 'src/../../.env')
+    // Path resolves to .env which is outside project root — must be blocked
+    // Any path traversing outside projectRoot is blocked: protected=true, risk=HIGH
+    expect(result.protected).toBe(true)
+    expect(result.risk).toBe('HIGH')
     rmSync(dir, { recursive: true, force: true })
   })
 })

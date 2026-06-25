@@ -22,10 +22,11 @@ Proporcionar una herramienta CLI local que gobierne todo el ciclo de desarrollo 
 5. **Auditoría completa**: trazabilidad de sesiones, cambios, aprobaciones y snapshots.
 
 ## Estado actual
-MVP CLI completado con 33 comandos, 36 controles, sistema de sesiones gobernadas, Git hooks de enforcement, preflight quality gates, reportes de compliance y soporte cross-platform Linux/Windows.
+v2.0.0 publicado: 37 comandos CLI, 36 controles de compliance, sesiones gobernadas, Git hooks de enforcement, preflight quality gates, reportes normativos (OWASP/RGPD/ISO 27001/CWE/SLSA), daemon + REST API + MCP server, soporte cross-platform Linux/Windows. 76 tests automatizados. CI/CD con GitHub Actions.
 
-## Stack actual
-Node.js + TypeScript + Commander + Chokidar + simple-git + JSON portable.
+## Stack v2.0
+Node.js ≥ 18 + TypeScript ESM strict + Commander + Chokidar + simple-git + JSON portable + Express + @modelcontextprotocol/sdk.
 
-## Stack objetivo (v2.0)
-Tauri + Rust + React + TypeScript + SQLite.
+## Roadmap v2.1
+Desktop: Tauri + Rust + React + SQLite como storage primario.
+\n---\n_SP-DevControl v2.0.0 — Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador) — MIT License_

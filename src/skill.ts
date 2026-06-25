@@ -1,3 +1,11 @@
+/**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
+
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import type { DevSentinelConfig } from './types.js'

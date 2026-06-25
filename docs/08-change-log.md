@@ -38,3 +38,4 @@
 - fd leak en daemon.ts al fallar spawn
 - Daemon worker wired to startApiServer() en cli.ts
 
+\n---\n_SP-DevControl v2.0.0 — Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador) — MIT License_

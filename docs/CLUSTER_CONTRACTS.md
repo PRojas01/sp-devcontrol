@@ -139,3 +139,4 @@ el resto de comandos.
 4. No crear nuevas constantes de puerto — usar las de este contrato.
 5. Ejecutar `tsc --noEmit` sobre tu archivo antes de marcar la tarea completa.
 6. Si defines una interfaz nueva que otros módulos necesitarán, añadirla aquí.
+\n---\n_SP-DevControl v2.0.0 — Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador) — MIT License_

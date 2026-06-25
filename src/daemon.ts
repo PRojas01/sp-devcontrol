@@ -1,3 +1,11 @@
+/**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
+
 import {
   existsSync,
   mkdirSync,
@@ -6,9 +14,12 @@ import {
   openSync,
   closeSync,
   unlinkSync,
+  chmodSync,
 } from 'fs'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import { homedir } from 'os'
+import { randomBytes } from 'crypto'
+import { fileURLToPath } from 'url'
 import { spawn, spawnSync } from 'child_process'
 import { isWindows } from './platform.js'
 
@@ -16,6 +27,11 @@ const DEVCONTROL_HOME = join(homedir(), '.devcontrol')
 const PID_PATH = join(DEVCONTROL_HOME, 'daemon.pid')
 const LOG_PATH = join(DEVCONTROL_HOME, 'daemon.log')
 const STATE_PATH = join(DEVCONTROL_HOME, 'daemon-state.json')
+const LOCK_PATH = join(DEVCONTROL_HOME, 'daemon.lock')
+const TOKEN_PATH = join(DEVCONTROL_HOME, 'api-token')
+
+// Derive the CLI entry point path from this module's location (dist/daemon.js → dist/cli.js)
+const CLI_PATH = join(dirname(fileURLToPath(import.meta.url)), 'cli.js')
 
 const DEFAULT_API_PORT = 7891
 const DEFAULT_WS_PORT = 7892
@@ -81,7 +97,7 @@ function isProcessAlive(pid: number): boolean {
 }
 
 function removePidFiles(): void {
-  for (const p of [PID_PATH, STATE_PATH]) {
+  for (const p of [PID_PATH, STATE_PATH, TOKEN_PATH]) {
     try {
       if (existsSync(p)) unlinkSync(p)
     } catch {
@@ -99,60 +115,88 @@ async function waitUntilDead(pid: number, timeoutMs: number): Promise<boolean> {
   return !isProcessAlive(pid)
 }
 
+export function getApiToken(): string | null {
+  try {
+    return existsSync(TOKEN_PATH) ? readFileSync(TOKEN_PATH, 'utf-8').trim() || null : null
+  } catch {
+    return null
+  }
+}
+
 export async function startDaemon(
   apiPort: number = DEFAULT_API_PORT,
   wsPort: number = DEFAULT_WS_PORT,
 ): Promise<void> {
   ensureHomeDir()
 
-  const existingPid = readPid()
-  if (existingPid !== null && isProcessAlive(existingPid)) {
-    throw new Error(`Daemon is already running (PID ${existingPid})`)
+  // Atomic lock: openSync with 'wx' fails if file already exists (O_CREAT|O_EXCL)
+  let lockFd: number
+  try {
+    lockFd = openSync(LOCK_PATH, 'wx')
+  } catch {
+    throw new Error('Another daemon start is already in progress (lock file exists). Try again in a moment.')
   }
 
-  removePidFiles()
+  try {
+    const existingPid = readPid()
+    if (existingPid !== null && isProcessAlive(existingPid)) {
+      throw new Error(`Daemon is already running (PID ${existingPid})`)
+    }
 
-  const logFd = openSync(LOG_PATH, 'a')
+    removePidFiles()
 
-  const child = spawn(
-    process.execPath,
-    [
-      process.argv[1],
-      '__daemon_worker__',
-      `--api-port=${apiPort}`,
-      `--ws-port=${wsPort}`,
-    ],
-    {
-      detached: true,
-      shell: false,
-      stdio: ['ignore', logFd, logFd],
-      env: {
-        ...process.env,
-        DEVCONTROL_DAEMON: '1',
-        DEVCONTROL_API_PORT: String(apiPort),
-        DEVCONTROL_WS_PORT: String(wsPort),
+    // Generate a random 32-byte auth token for this daemon lifetime
+    const apiToken = randomBytes(32).toString('hex')
+    writeFileSync(TOKEN_PATH, apiToken, 'utf8')
+    try { chmodSync(TOKEN_PATH, 0o600) } catch { /* non-critical on Windows */ }
+
+    const logFd = openSync(LOG_PATH, 'a')
+
+    const child = spawn(
+      process.execPath,
+      [
+        CLI_PATH,
+        '__daemon_worker__',
+        `--api-port=${apiPort}`,
+        `--ws-port=${wsPort}`,
+      ],
+      {
+        detached: true,
+        shell: false,
+        stdio: ['ignore', logFd, logFd],
+        env: {
+          ...process.env,
+          DEVCONTROL_DAEMON: '1',
+          DEVCONTROL_API_PORT: String(apiPort),
+          DEVCONTROL_WS_PORT: String(wsPort),
+          DEVCONTROL_API_TOKEN: apiToken,
+        },
       },
-    },
-  )
+    )
 
-  const pid = child.pid
-  if (pid === undefined) {
+    const pid = child.pid
+    if (pid === undefined) {
+      try { closeSync(logFd) } catch { /* best-effort */ }
+      throw new Error('Failed to obtain PID from spawned daemon process')
+    }
+
+    child.unref()
     try { closeSync(logFd) } catch { /* best-effort */ }
-    throw new Error('Failed to obtain PID from spawned daemon process')
+
+    writeFileSync(PID_PATH, String(pid), 'utf8')
+
+    const state: DaemonState = {
+      pid,
+      apiPort,
+      wsPort,
+      startedAt: new Date().toISOString(),
+      projectsWatched: 0,
+    }
+    writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), 'utf8')
+  } finally {
+    try { closeSync(lockFd) } catch { /* best-effort */ }
+    try { unlinkSync(LOCK_PATH) } catch { /* best-effort */ }
   }
-
-  child.unref()
-
-  writeFileSync(PID_PATH, String(pid), 'utf8')
-
-  const state: DaemonState = {
-    pid,
-    apiPort,
-    wsPort,
-    startedAt: new Date().toISOString(),
-    projectsWatched: 0,
-  }
-  writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), 'utf8')
 }
 
 export async function stopDaemon(): Promise<void> {

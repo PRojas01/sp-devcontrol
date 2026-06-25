@@ -1,0 +1,12 @@
+# Default owner: Pedro Rojas
+* @pedro-rojas
+
+# Core governance engine
+/src/policy.ts @pedro-rojas
+/src/compliance.ts @pedro-rojas
+/src/api.ts @pedro-rojas
+/src/mcp.ts @pedro-rojas
+
+# Documentation
+/docs/* @pedro-rojas
+README.md @pedro-rojas

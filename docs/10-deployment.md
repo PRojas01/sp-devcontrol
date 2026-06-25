@@ -1,23 +1,23 @@
-# SP-DevControl v2 — Guía de Despliegue
+# SP-DevControl v2 — Deployment Guide
 
-> Puertos de referencia: REST API `:7891`, WebSocket `:7892`, MCP HTTP/SSE `:7893`.
-> Todos los servicios escuchan en `127.0.0.1` únicamente.
+> Ports: REST API `:7891`, MCP HTTP/SSE `:7893`.
+> All services listen on `127.0.0.1` only.
 
 ---
 
-## 1. Instalación via npm (recomendado)
+## 1. npm Installation (recommended)
 
-Requiere Node.js ≥18.
+Requires Node.js ≥ 18.
 
 ```bash
 npm install -g sp-devcontrol
 
-# Verificar instalación
-devcontrol --version
-devcontrol preflight
+# Verify installation
+sp-devcontrol --version
+sp-devcontrol project:check
 ```
 
-Para actualizar:
+Upgrade:
 
 ```bash
 npm update -g sp-devcontrol
@@ -25,255 +25,192 @@ npm update -g sp-devcontrol
 
 ---
 
-## 2. Binario standalone — Linux
+## 2. Standalone Binary — Linux
 
-No requiere Node.js en la máquina destino.
+No Node.js required on the target machine.
 
 ```bash
-# Descargar el binario
-curl -L https://github.com/tu-org/sp-devcontrol/releases/latest/download/devcontrol-linux-x64 \
-  -o /usr/local/bin/devcontrol
+# Linux x64
+curl -L https://github.com/SolucionesPro/sp-devcontrol/releases/latest/download/devcontrol-linux-x64 -o devcontrol
+chmod +x devcontrol && sudo mv devcontrol /usr/local/bin/
 
-chmod +x /usr/local/bin/devcontrol
-
-# Verificar
-devcontrol --version
+# Linux ARM64
+curl -L https://github.com/SolucionesPro/sp-devcontrol/releases/latest/download/devcontrol-linux-arm64 -o devcontrol
+chmod +x devcontrol && sudo mv devcontrol /usr/local/bin/
 ```
-
-Tamaño aproximado: 53 MB (incluye runtime Node.js y addon SQLite nativo).
 
 ---
 
-## 3. Binario standalone — Windows
-
-No requiere Node.js en la máquina destino.
+## 3. Standalone Binary — Windows
 
 ```powershell
-# PowerShell — descargar a una carpeta en PATH
-Invoke-WebRequest `
-  -Uri "https://github.com/tu-org/sp-devcontrol/releases/latest/download/devcontrol-win-x64.exe" `
-  -OutFile "$env:LOCALAPPDATA\Programs\devcontrol\devcontrol.exe"
-
-# Añadir al PATH si no está ya
-[Environment]::SetEnvironmentVariable(
-  "PATH",
-  "$env:PATH;$env:LOCALAPPDATA\Programs\devcontrol",
-  "User"
-)
-
-# Verificar (nueva terminal)
-devcontrol --version
+# Windows x64
+curl -L https://github.com/SolucionesPro/sp-devcontrol/releases/latest/download/devcontrol-win-x64.exe -o devcontrol.exe
+# Move to a directory in your PATH
 ```
-
-Tamaño aproximado: 45 MB.
 
 ---
 
-## 4. Despliegue en cluster (múltiples workers)
-
-Los scripts en `scripts/` automatizan el despliegue distribuido.
+## 4. Quick Start
 
 ```bash
-# 1. Instalar dependencias en todos los nodos
-./scripts/install-deps-cluster.sh
+# Initialize a project
+cd my-project
+sp-devcontrol init --project-name my-project
 
-# 2. Compilar binarios para distribución
-./scripts/build-binaries.sh
-# Genera: dist/devcontrol-linux-x64, dist/devcontrol-win-x64.exe
+# Run preflight checks
+sp-devcontrol project:check
 
-# 3. Desplegar a los nodos del cluster
-./scripts/deploy-cluster.sh
+# Start a governed session
+sp-devcontrol session:start --objective "implement feature X"
+
+# Start file watcher
+sp-devcontrol watch:start --session <session-id>
+
+# Approve or reject changes
+sp-devcontrol session:change:approve --change-id <id>
+sp-devcontrol session:change:reject --change-id <id>
+
+# Close session
+sp-devcontrol session:close --session <id>
+
+# Generate compliance report
+sp-devcontrol report:compliance
+
+# Run an AI agent in sandbox mode
+sp-devcontrol agent:run --agent opencode --prompt "add login feature"
 ```
-
-Consultar `docs/CLUSTER_CONTRACTS.md` para los contratos de puertos y URLs que deben respetar todos los workers.
 
 ---
 
-## 5. Configurar como MCP server en Claude Code
+## 5. Daemon Mode (Background Service)
 
-### Modo stdio (recomendado para Claude Code)
+```bash
+# Start daemon
+sp-devcontrol daemon start
+# Daemon starts REST API on :7891 and MCP Server on :7893
 
+# Check daemon status
+sp-devcontrol daemon status
+
+# Stop daemon
+sp-devcontrol daemon stop
+```
+
+The daemon creates:
+- `.devcontrol/daemon.pid` — PID file for process management
+- `.devcontrol/daemon.state` — Daemon state (JSON)
+- `.devcontrol/api-token` — Auto-generated auth token (64-char hex, mode 0600)
+
+---
+
+## 6. MCP Server
+
+```bash
+# HTTP/SSE mode (requires daemon)
+sp-devcontrol mcp:serve
+
+# stdio mode (no daemon, for editor integration)
+sp-devcontrol mcp:stdio
+```
+
+### Editor Integration
+
+**Claude Code:**
 ```bash
 claude mcp add devcontrol -- devcontrol mcp:stdio
 ```
 
-Claude Code lanzará el proceso `devcontrol mcp:stdio` automáticamente al iniciar una sesión. No requiere que el daemon esté corriendo.
-
-### Verificar la integración
-
-```bash
-claude mcp list
-# Debe aparecer: devcontrol (stdio)
-```
-
-El slash command `/devcontrol` estará disponible en Claude Code tras reiniciar la sesión.
-
----
-
-## 6. Configurar como MCP server en opencode, Cursor y Windsurf
-
-### Opción A — Generación automática
-
-```bash
-# Desde la raíz del proyecto
-devcontrol skill:generate --mcp-port 7893
-
-# O para un editor específico
-devcontrol skill:generate --editor cursor --mcp-port 7893
-devcontrol skill:generate --editor windsurf --mcp-port 7893
-devcontrol skill:generate --editor opencode --mcp-port 7893
-```
-
-Esto requiere que el daemon esté corriendo para servir el endpoint MCP HTTP/SSE:
-
-```bash
-devcontrol daemon start
-# o en foreground:
-devcontrol mcp:serve --port 7893
-```
-
-### Opción B — Configuración manual
-
-Añadir al archivo de configuración del editor:
-
-**Cursor** — `.cursor/mcp.json` (requiere Cursor 0.43+):
-
+**opencode:**
 ```json
 {
   "mcpServers": {
-    "devcontrol": {
-      "type": "sse",
-      "url": "http://localhost:7893/mcp"
-    }
+    "devcontrol": { "type": "sse", "url": "http://localhost:7893/mcp" }
   }
 }
 ```
 
-**Windsurf** — `.windsurf/mcp.json` (requiere Windsurf 1.8+):
-
-```json
-{
-  "mcpServers": {
-    "devcontrol": {
-      "type": "sse",
-      "url": "http://localhost:7893/mcp"
-    }
-  }
-}
-```
-
-**opencode** — `opencode.json` en la raíz del proyecto:
-
-```json
-{
-  "mcp": {
-    "servers": {
-      "devcontrol": {
-        "type": "sse",
-        "url": "http://localhost:7893/mcp"
-      }
-    }
-  }
-}
-```
-
-> **Nota crítica:** La ruta del endpoint MCP es siempre `/mcp`, nunca `/sse`. El tipo de transporte es `sse` pero la ruta es `/mcp`. Ver `docs/CLUSTER_CONTRACTS.md`.
+**Cursor:** Settings → MCP Servers → Add → devcontrol@http://localhost:7893/mcp
 
 ---
 
-## 7. Daemon como systemd user unit (Linux)
+## 7. REST API
 
-Permite que el daemon arranque automáticamente con la sesión del usuario y se reinicie en caso de fallo.
+With daemon running, the REST API is available at `http://127.0.0.1:7891`.
 
-### Crear la unidad
+See [03-api-reference.md](03-api-reference.md) for full API documentation.
 
-```bash
-mkdir -p ~/.config/systemd/user
+---
 
-cat > ~/.config/systemd/user/devcontrol.service << 'EOF'
-[Unit]
-Description=SP-DevControl daemon
-After=network.target
+## 8. CI/CD Integration
 
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/devcontrol daemon start
-ExecStop=/usr/local/bin/devcontrol daemon stop
-Restart=on-failure
-RestartSec=3s
-Environment=DEVCONTROL_API_PORT=7891
-Environment=DEVCONTROL_WS_PORT=7892
+### GitHub Actions
 
-[Install]
-WantedBy=default.target
-EOF
-```
+The project includes CI/CD workflows:
+- `.github/workflows/ci.yml` — Build + test on push/PR (Node 18, 20, 22)
+- `.github/workflows/release.yml` — Build binaries + publish on tag push (v*)
 
-### Activar y arrancar
+### Custom CI
 
 ```bash
-# Recargar la configuración de systemd
-systemctl --user daemon-reload
+# TypeScript check
+npx tsc --noEmit
 
-# Habilitar arranque automático con la sesión
-systemctl --user enable devcontrol.service
+# Run tests
+npm test
 
-# Arrancar ahora
-systemctl --user start devcontrol.service
-
-# Verificar estado
-systemctl --user status devcontrol.service
-devcontrol daemon status
+# Build standalone binaries
+npm run pkg:all
 ```
 
-### Habilitar lingering (arranque sin sesión activa)
+---
 
-Si el daemon debe correr aunque no haya sesión de escritorio activa:
+## 9. Production Considerations
 
-```bash
-loginctl enable-linger $USER
-```
+### Security
+- All API and MCP endpoints are protected by token auth
+- Token stored in `.devcontrol/api-token` with restricted file permissions (0600)
+- Path traversal prevention is built into the policy engine
+- Commands are evaluated with exact matching (no substring bypass)
+
+### Storage
+- Default: JSON files in `.devcontrol/storage/` with atomic writes
+- SQLite backend available for larger projects
+- Automatic backup (.bak) on database open
+
+### Monitoring
+- File watcher uses Chokidar (polling on Windows, events on Linux)
+- Burst processing window: 2 seconds (configurable)
+- Deleted files are preserved in `.devcontrol/deleted-attempts/`
 
 ### Logs
+- Audit logs stored in `.devcontrol/sessions/`
+- Daily summaries generated automatically
+- Session artifacts include: context, checklist, diff summary, audit trail
+
+---
+
+## 10. Uninstall
 
 ```bash
-journalctl --user -u devcontrol.service -f
-
-# O directamente:
-tail -f ~/.devcontrol/daemon.log
+npm uninstall -g sp-devcontrol
+# or remove the standalone binary:
+rm /usr/local/bin/devcontrol
 ```
 
-### Desactivar
-
+To remove all project governance data:
 ```bash
-systemctl --user stop devcontrol.service
-systemctl --user disable devcontrol.service
+rm -rf .devcontrol/
 ```
 
 ---
 
-## Referencia rápida de puertos
+## Support
 
-| Servicio     | Puerto | URL                          |
-|--------------|--------|------------------------------|
-| REST API     | 7891   | `http://127.0.0.1:7891`      |
-| WebSocket    | 7892   | `ws://127.0.0.1:7892`        |
-| MCP HTTP/SSE | 7893   | `http://127.0.0.1:7893/mcp`  |
+- GitHub Issues: https://github.com/SolucionesPro/sp-devcontrol/issues
+- Documentation: See `/docs/` directory
+- License: MIT © 2026 Pedro Rojas — SolucionesPro (Ecuador)
 
 ---
 
-## Diagnóstico rápido
-
-```bash
-# Estado del daemon y servicios
-devcontrol daemon status
-
-# Comprobaciones pre-vuelo del proyecto
-devcontrol preflight
-
-# Verificar API
-curl http://127.0.0.1:7891/health
-
-# Verificar MCP SSE (debe devolver headers text/event-stream)
-curl -N http://127.0.0.1:7893/mcp
-```
+_SP-DevControl v2.0.0 — Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador) — MIT License_

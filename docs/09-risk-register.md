@@ -31,3 +31,4 @@
 **Descripción:** Si el proceso daemon muere inesperadamente (OOM, excepción no capturada), las sesiones activas se pierden y los editores no pueden comunicarse con la API ni el MCP server hasta que el usuario reinicie el daemon manualmente.
 
 **Mitigación:** Instalar un systemd user unit con `Restart=on-failure` y `RestartSec=3s`. Ver `docs/10-deployment.md` para la unidad de ejemplo. En Windows, usar el Task Scheduler con la opción de reinicio en fallo.
+\n---\n_SP-DevControl v2.0.0 — Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador) — MIT License_

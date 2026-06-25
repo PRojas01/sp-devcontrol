@@ -1,6 +1,14 @@
 #!/usr/bin/env node
+/**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
 import { Command } from 'commander'
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'fs'
+import { VERSION } from './version.js'
 import { join, resolve } from 'path'
 import { generateComplianceReport, renderComplianceMarkdown } from './compliance.js'
 import { DEFAULT_CONFIG, ensureConfigDir, hasConfig, loadConfig, saveConfig } from './config.js'
@@ -56,13 +64,19 @@ import {
 } from './storage.js'
 import { evaluateTokenBudget, estimateSessionTokens } from './token_guard.js'
 import type { ApprovalRecord, ChangeSet, Session, SessionChecklistItem } from './types.js'
+import { runApprovalFlow } from './approval.js'
+import { analyzeChanges } from './analyzer.js'
+import { runInSandbox } from './wrapper.js'
+import inquirer from 'inquirer'
+import { validateChangeset } from './validator.js'
 import { FileWatcher } from './watcher.js'
 
 // Daemon worker mode: when spawned by startDaemon(), start the API server inline
 if (process.argv[2] === '__daemon_worker__') {
   const apiPort = parseInt(process.env['DEVCONTROL_API_PORT'] ?? '7891', 10)
+  const apiToken = process.env['DEVCONTROL_API_TOKEN'] || undefined
   import('./api.js').then(({ startApiServer }) => {
-    startApiServer(apiPort).then(() => {
+    startApiServer(apiPort, apiToken).then(() => {
       process.title = `devcontrol-daemon :${apiPort}`
     }).catch((err: unknown) => {
       process.stderr.write(`Daemon API failed: ${String(err)}\n`)
@@ -79,7 +93,7 @@ const program = new Command()
 program
   .name('sp-devcontrol')
   .description('SP-DevControl local governance CLI')
-  .version('2.0.0')
+  .version(VERSION)
   .option('--verbose', 'Show stack traces on error')
 
 function openDb(projectRoot: string) {
@@ -390,7 +404,7 @@ program.command('session:change:show')
   })
 
 program.command('session:change:approve')
-  .description('Approve one detected change, create snapshot and optionally commit it')
+  .description('Approve one detected change via interactive TUI flow, create snapshot and optionally commit it')
   .requiredOption('--change-id <id>')
   .option('--message <text>', 'decision message', 'approved from CLI')
   .action(async (options) => {
@@ -401,6 +415,42 @@ program.command('session:change:approve')
     if (!change) throw new Error(`Change not found: ${options.changeId}`)
     const session = getSession(db, change.sessionId)
     if (!session) throw new Error(`Session not found: ${change.sessionId}`)
+
+    const analysis = analyzeChanges(change.files, config, projectRoot)
+    const validation = validateChangeset(change.files, config)
+    const decision = await runApprovalFlow(change, analysis, validation, config)
+
+    if (decision.action === 'reject') {
+      createSnapshotFromCurrentState(
+        projectRoot,
+        db,
+        session,
+        `pre-reject-${change.id}`,
+        change.files.map(file => file.filepath),
+        'rollback',
+        change.id,
+      )
+      const restoredFiles = rollbackChange(projectRoot, change)
+
+      let rejectedBranch = ''
+      const git = new GitManager(projectRoot)
+      if (await git.isRepo()) {
+        try {
+          rejectedBranch = await git.saveRejectedBranch(change, config)
+        } catch {
+          rejectedBranch = ''
+        }
+      }
+
+      updateChangeStatus(db, change.id, 'rejected', undefined, rejectedBranch, decision.message || options.message)
+      session.rejected += 1
+      updateSession(db, session)
+      refreshSessionArtifacts(projectRoot, db, session)
+      closeDb()
+
+      console.log(JSON.stringify({ changeId: change.id, status: 'rejected', restoredFiles, rejectedBranch }, null, 2))
+      return
+    }
 
     createSnapshotFromChangeBefore(projectRoot, db, session, change, `pre-approve-${change.id}`)
 
@@ -414,13 +464,14 @@ program.command('session:change:approve')
       }
     }
 
-    updateChangeStatus(db, change.id, 'approved', commitHash, undefined, options.message)
+    const finalStatus = decision.action === 'approve_partial' ? 'partial' : 'approved'
+    updateChangeStatus(db, change.id, finalStatus, commitHash, undefined, decision.message || options.message)
     session.approved += 1
     updateSession(db, session)
     refreshSessionArtifacts(projectRoot, db, session)
     closeDb()
 
-    console.log(JSON.stringify({ changeId: change.id, status: 'approved', commitHash }, null, 2))
+    console.log(JSON.stringify({ changeId: change.id, status: finalStatus, commitHash }, null, 2))
   })
 
 program.command('session:change:reject')
@@ -435,6 +486,18 @@ program.command('session:change:reject')
     if (!change) throw new Error(`Change not found: ${options.changeId}`)
     const session = getSession(db, change.sessionId)
     if (!session) throw new Error(`Session not found: ${change.sessionId}`)
+
+    const { confirmReject } = await inquirer.prompt<{ confirmReject: boolean }>([{
+      type: 'confirm',
+      name: 'confirmReject',
+      message: `Reject change ${change.id} (${change.riskLevel}, ${change.files.length} files)? This will rollback all affected files.`,
+      default: false,
+    }])
+    if (!confirmReject) {
+      closeDb()
+      console.log('Rejection cancelled.')
+      return
+    }
 
     createSnapshotFromCurrentState(
       projectRoot,
@@ -508,6 +571,7 @@ program.command('session:rollback')
     if (options.changeId) {
       const change = getChange(db, options.changeId)
       if (!change) throw new Error(`Change not found: ${options.changeId}`)
+      if (change.sessionId !== options.session) throw new Error(`Change ${change.id} does not belong to session ${options.session} — cross-session rollback blocked for security`)
       createSnapshotFromCurrentState(
         projectRoot,
         db,
@@ -775,7 +839,7 @@ program.command('report:session')
       ...changes.map(c => `| ${c.id} | ${c.riskLevel} | ${c.status} | ${c.files.map(f => f.filepath).join(', ')} | ${c.controlViolations.length} |`),
       ``,
       `---`,
-      `_Generated by SP-DevControl v1.0.0 · ${new Date().toISOString()}_`,
+      `_Generated by SP-DevControl ${VERSION} · ${new Date().toISOString()}_`,
     ]
 
     const markdown = lines.join('\n')
@@ -917,6 +981,24 @@ program
     if (backend === 'sqlite') {
       console.log('Tip: existing data in .devcontrol/storage/devcontrol.db.json will not be migrated automatically.')
       console.log('Run: devcontrol storage:migrate to copy existing data to SQLite.')
+    }
+  })
+
+program.command('agent:run')
+  .description('Run an AI agent in a sandboxed environment and capture changes')
+  .requiredOption('--agent <name>', 'agent name (claude, opencode, codex, gemini)')
+  .requiredOption('--prompt <text>', 'prompt to send to the agent')
+  .option('--output <path>', 'save sandbox result JSON to file')
+  .action(async (options) => {
+    const projectRoot = process.cwd()
+    const config = loadConfig(projectRoot)
+    const result = await runInSandbox(options.agent, options.prompt, projectRoot, config)
+    const output = JSON.stringify(result, null, 2)
+    if (options.output) {
+      writeFileSync(resolve(projectRoot, options.output), output, 'utf-8')
+      console.log(`Sandbox result written to: ${options.output}`)
+    } else {
+      console.log(output)
     }
   })
 

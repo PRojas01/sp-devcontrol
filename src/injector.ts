@@ -1,5 +1,14 @@
+/**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
+
 import { writeFileSync, mkdirSync, existsSync } from 'fs'
 import { join } from 'path'
+import { VERSION } from './version.js'
 import type { DevSentinelConfig, InjectionResult } from './types.js'
 import { getActiveControls } from './catalog/controls.js'
 
@@ -63,7 +72,7 @@ ${config.stack.join(' · ')}
 ${sections.join('\n\n---\n\n')}
 
 ---
-*SP-DevControl v2.0.0 — Generated ${new Date().toISOString()}*
+*SP-DevControl ${VERSION} — Generated ${new Date().toISOString()}*
 `
 }
 

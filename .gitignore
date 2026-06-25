@@ -1,5 +1,17 @@
 node_modules/
 dist/
+bundle/
+release/
 *.db
 *.db-journal
+*.log
+.env
 .devcontrol/storage/
+Diseño de la aplicación.txt
+PLAN_COMPLETO_DEVCONTROL.md
+BACKLOG_MVP_SP_DEVCONTROL.md
+.devcontrol/sessions/
+.devcontrol/snapshots/
+.devcontrol/memory/
+.devcontrol/api-token
+.devcontrol/token

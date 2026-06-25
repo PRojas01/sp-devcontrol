@@ -1,4 +1,12 @@
 /**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
+
+/**
  * storage-adapter.ts
  * Selects the active storage backend (json | sqlite) based on project config
  * and re-exports all storage functions delegating to the chosen backend.

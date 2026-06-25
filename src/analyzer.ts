@@ -1,5 +1,13 @@
-import { existsSync, readFileSync } from 'fs'
-import { resolve, extname } from 'path'
+/**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
+
+import { existsSync, readFileSync, lstatSync, realpathSync } from 'fs'
+import { resolve, extname, isAbsolute } from 'path'
 import { countDiffLines, generateDiff } from './diff.js'
 import type { FileChange, AnalysisResult, DevSentinelConfig, RiskLevel } from './types.js'
 
@@ -69,15 +77,30 @@ export function estimateRisk(
   return 'LOW'
 }
 
-export function checkScope(filepath: string, config: DevSentinelConfig): boolean {
+export function checkScope(filepath: string, config: DevSentinelConfig, projectRoot?: string): boolean {
   const normalized = filepath.replace(/\\/g, '/')
+  let resolvedPath = normalized
+
+  if (projectRoot) {
+    try {
+      const absPath = isAbsolute(normalized) ? normalized : resolve(projectRoot, normalized)
+      if (lstatSync(absPath).isSymbolicLink()) {
+        const real = realpathSync(absPath).replace(/\\/g, '/')
+        const rel = isAbsolute(real) ? real : real
+        resolvedPath = rel.startsWith(projectRoot.replace(/\\/g, '/'))
+          ? rel.slice(projectRoot.replace(/\\/g, '/').length + 1)
+          : rel
+      }
+    } catch { /* not a symlink or not accessible */ }
+  }
+
   for (const prot of config.scope.protected) {
     const p = prot.replace(/\*/g, '').replace(/\\/g, '/')
-    if (normalized.includes(p) || normalized === p) return true
+    if (resolvedPath.includes(p) || resolvedPath === p) return true
   }
   for (const allowed of config.scope.allowed) {
     const a = allowed.replace(/\\/g, '/')
-    if (normalized.startsWith(a) || normalized === a.replace(/\/$/, '')) return false
+    if (resolvedPath.startsWith(a) || resolvedPath === a.replace(/\/$/, '')) return false
   }
   return true
 }

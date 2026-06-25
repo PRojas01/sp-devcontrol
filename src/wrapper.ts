@@ -1,3 +1,11 @@
+/**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
+
 import { mkdirSync, cpSync, existsSync, rmSync, readdirSync, readFileSync, writeFileSync as fsWriteFileSync } from 'fs'
 import { join, relative, resolve } from 'path'
 import { tmpdir } from 'os'

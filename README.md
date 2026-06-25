@@ -1,124 +1,258 @@
-# SP-DevControl v2
+# SP-DevControl
 
-Capa local de gobernanza para proyectos de desarrollo asistido por IA.
+[![npm version](https://img.shields.io/npm/v/sp-devcontrol)](https://www.npmjs.com/package/sp-devcontrol)
+[![CI](https://github.com/SolucionesPro/sp-devcontrol/actions/workflows/ci.yml/badge.svg)](https://github.com/SolucionesPro/sp-devcontrol/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-blue)](https://github.com/SolucionesPro/sp-devcontrol/releases)
 
-Valida el proyecto antes del primer prompt, impone diseño primero, monitorea cambios en tiempo real, clasifica riesgo, exige aprobaciones, genera snapshots y garantiza cumplimiento normativo (OWASP, RGPD, ISO 27001, CWE, SLSA).
+**Local governance layer for AI-assisted development.**  
+Protect your project from uncontrolled AI agent changes with policy enforcement, approval gates, compliance reports, and universal MCP integration.
 
-**v2 añade:** daemon de background, REST API en :7891, servidor MCP en :7893 (Claude Code, opencode, Cursor, Windsurf), binarios standalone sin Node.
+---
 
-## Instalación
+## Why DevControl
+
+AI coding agents (Claude Code, Cursor, Copilot) ship code at machine speed. Without guardrails, one bad prompt can delete tests, expose secrets, or bypass code review.
+
+DevControl gives you:
+
+- **Policy enforcement** — protect critical paths, block dangerous commands
+- **Approval gates** — no change goes in without review
+- **Audit trail** — every file change is tracked per session
+- **Compliance** — 36 controls mapped to OWASP, RGPD, ISO 27001, CWE, SLSA
+- **Universal MCP** — works with every major AI editor out of the box
+
+There is no other tool doing governance-for-agentic-development. DevControl fills that gap.
+
+---
+
+## Quickstart
 
 ```bash
-# Desde npm
+# Install globally
 npm install -g sp-devcontrol
 
-# Binario standalone (sin Node requerido)
+# Initialize governance for your project
+cd my-project
+sp-devcontrol init --project-name my-project
+
+# Check project health
+sp-devcontrol project:check
+
+# Start a governed session
+sp-devcontrol session:start --objective "implement feature X"
+
+# Monitor changes in real time
+sp-devcontrol watch:start --session <id>
+
+# Approve or reject changes
+sp-devcontrol session:change:approve --change-id <id>
+sp-devcontrol session:change:reject --change-id <id>
+
+# Generate compliance report
+sp-devcontrol report:compliance
+
+# Close session
+sp-devcontrol session:close --session <id>
+```
+
+### Standalone binary (no Node.js required)
+
+```bash
 curl -L https://github.com/SolucionesPro/sp-devcontrol/releases/latest/download/devcontrol-linux-x64 -o devcontrol
 chmod +x devcontrol && sudo mv devcontrol /usr/local/bin/
 ```
 
-Compatible Linux x64/ARM64 y Windows x64. Node.js ≥ 18 si usas npm.
+Linux x64, ARM64, and Windows x64 binaries available.
 
-## Inicio rápido
+---
 
-```bash
-# Inicializar proyecto
-sp-devcontrol init --project-name mi-proyecto
+## MCP Integration
 
-# Verificar salud del proyecto
-sp-devcontrol project:check
-
-# Completar docs/ con diseño real, luego:
-sp-devcontrol session:start --objective "implementar feature X"
-
-# Monitorear cambios
-sp-devcontrol watch:start --session <id>
-
-# Aprobar/rechazar cambios
-sp-devcontrol session:change:approve --change-id <id>
-sp-devcontrol session:change:reject --change-id <id>
-
-# Cerrar sesión
-sp-devcontrol session:close --session <id>
-```
-
-## Integración con editores agénticos (MCP)
+DevControl exposes a universal MCP server (6 tools) that works with every major AI editor.
 
 ### Claude Code
+
 ```bash
-# Añadir como MCP server
+# stdio mode (no daemon needed)
 claude mcp add devcontrol -- devcontrol mcp:stdio
-# O en modo HTTP (requiere daemon activo)
-# En .claude/mcp.json: { "mcpServers": { "devcontrol": { "type": "sse", "url": "http://localhost:7893/mcp" } } }
+
+# Or HTTP mode (with daemon)
+# .claude/mcp.json:
+{
+  "mcpServers": {
+    "devcontrol": { "type": "sse", "url": "http://localhost:7893/mcp" }
+  }
+}
 ```
 
-### opencode / Cursor / Windsurf
+### opencode
+
 ```bash
-# Genera configs para todos los editores
-devcontrol skill:generate --mcp-port 7893
-# Arranca el servidor MCP
-devcontrol mcp:serve
+# Auto-generate config
+devcontrol skill:generate
+# Will create/modify opencode.json with MCP server entry
 ```
 
-### Daemon (background)
+### Cursor
+
 ```bash
-devcontrol daemon start     # arranca API :7891 + MCP :7893
-devcontrol daemon status    # verifica que está corriendo
-devcontrol daemon stop
+# Cursor reads .cursorrules automatically after:
+devcontrol inject
+# MCP: Settings → Cursor → MCP Servers → Add → devcontrol@http://localhost:7893/mcp
 ```
 
-## Comandos
+### Windsurf
 
-### Proyecto
-- `init` — Inicializar estructura de gobernanza
-- `project:status` — Estado del proyecto
-- `project:check` — Preflight completo con detección de fase
+```bash
+# Auto-generate .windsurfrules:
+devcontrol inject
+```
 
-### Políticas
-- `policy:path` — Evaluar riesgo de una ruta
-- `policy:command` — Evaluar un comando
-- `policy:protected:list|add|remove` — Rutas protegidas
-- `policy:command:approved:list|approve|revoke` — Comandos aprobados
+### GitHub Copilot
 
-### Sesiones
-- `session:start` — Iniciar sesión gobernada (con preflight)
-- `session:check` — Verificar tokens y refrescar contexto
-- `session:checklist:update` — Actualizar checklist
-- `session:close` — Cerrar sesión
+```bash
+# Generates copilot-instructions.md:
+devcontrol inject
+```
 
-### Cambios
-- `session:changes:list` — Listar cambios detectados
-- `session:change:show` — Detalle de un cambio
-- `session:change:approve` — Aprobar cambio
-- `session:change:reject` — Rechazar y rollback
+---
 
-### Aprobaciones
-- `session:approval:list|grant|revoke` — Gestionar aprobaciones
+## Full Command Reference
 
-### Snapshots
-- `snapshot:create` — Snapshot manual
-- `session:snapshots:list` — Listar snapshots
-- `session:rollback` — Rollback por cambio o sesión
+### Project
+| Command | Description |
+|---------|-------------|
+| `init` | Initialize governance structure |
+| `project:status` | Show project governance status |
+| `project:check` | Full preflight with phase detection |
 
-### Monitoreo
-- `watch:start` — Iniciar monitoreo de archivos
+### Sessions
+| Command | Description |
+|---------|-------------|
+| `session:start` | Start governed session with preflight |
+| `session:check` | Verify tokens and refresh context |
+| `session:checklist:update` | Update session checklist |
+| `session:close` | Close session |
 
-### Hooks
-- `hooks:install` — Instalar Git hooks
-- `hooks:uninstall` — Desinstalar hooks
-- `hooks:status` — Estado de hooks
+### Changes
+| Command | Description |
+|---------|-------------|
+| `session:changes:list` | List detected changes |
+| `session:change:show` | Change detail |
+| `session:change:approve` | Approve change with snapshot |
+| `session:change:reject` | Reject and rollback |
 
-### Reglas e inyección
-- `inject` — Generar reglas para editores agénticos
+### Approvals
+| Command | Description |
+|---------|-------------|
+| `session:approval:list` | List active approvals |
+| `session:approval:grant` | Grant approval |
+| `session:approval:revoke` | Revoke approval |
 
-### Reportes
-- `report:compliance` — Reporte de cumplimiento normativo
-- `report:session` — Reporte detallado de sesión
+### Policy
+| Command | Description |
+|---------|-------------|
+| `policy:path` | Evaluate path risk |
+| `policy:command` | Evaluate command risk |
+| `policy:protected:list\|add\|remove` | Manage protected paths |
+| `policy:command:approved:list\|approve\|revoke` | Manage approved commands |
 
-## Normativas soportadas
+### Monitoring & Snapshots
+| Command | Description |
+|---------|-------------|
+| `watch:start` | Start file watcher |
+| `snapshot:create` | Manual snapshot |
+| `session:snapshots:list` | List session snapshots |
+| `session:rollback` | Rollback by change or session |
+| `hooks:install\|uninstall\|status` | Git hooks management |
 
-OWASP Top 10, RGPD, ISO 27001, CWE, SLSA — 36 controles en 8 categorías.
+### Reports
+| Command | Description |
+|---------|-------------|
+| `report:compliance` | Generate compliance report |
+| `report:session` | Generate session report |
 
-## Licencia
+### Agent Sandbox
+| Command | Description |
+|---------|-------------|
+| `agent:run` | Run AI agent in sandbox, capture changes |
 
-MIT
+### Daemon & MCP
+| Command | Description |
+|---------|-------------|
+| `daemon start\|status\|stop` | Background service |
+| `mcp:serve` | Start MCP server |
+| `mcp:stdio` | MCP in stdio mode |
+| `skill:generate` | Generate editor configs |
+| `inject` | Inject rules for all editors |
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│              CLI (37 commands)               │
+├──────────┬──────────┬──────────┬────────────┤
+│  Session │  Policy  │ Watcher  │ Compliance │
+│  Manager │  Engine  │ +Burst   │  +36 Ctrl  │
+├──────────┴──────────┴──────────┴────────────┤
+│              REST API :7891                  │
+│              MCP Server :7893                │
+├─────────────────────────────────────────────┤
+│  Storage (JSON/SQLite)  │  Git Integration  │
+└─────────────────────────────────────────────┘
+```
+
+**38 commands** · **6 MCP tools** · **36 compliance controls** · **5 editor integrations**
+
+---
+
+## Compliance
+
+36 controls across 8 categories, mapped to:
+
+| Standard | Coverage |
+|----------|----------|
+| OWASP Top 10 | 8 controls |
+| RGPD | 6 controls |
+| ISO 27001 | 10 controls |
+| CWE | 7 controls |
+| SLSA | 5 controls |
+
+Generate evidence-ready reports with `sp-devcontrol report:compliance`.
+
+---
+
+## Benchmark
+
+| Feature | DevControl | Any alternative |
+|---------|-----------|----------------|
+| Governance for AI agents | ✅ Complete | ❌ Does not exist |
+| Universal MCP | ✅ 5 editors | ❌ None |
+| Compliance (OWASP, RGPD, ISO) | ✅ 36 controls | ❌ None |
+| Session rollback | ✅ Implemented | ❌ None |
+| Standalone binaries | ✅ 53MB Linux+Win | — |
+| CI/CD | ✅ GitHub Actions | — |
+
+No direct competitor exists in the AI-development-governance space.
+
+---
+
+## Roadmap
+
+- **v2.1**: Tauri desktop app, SQLite as primary storage, WebSocket notifications
+- **v2.2**: Visual session dashboard, enhanced reporting UI
+- **v2.3**: Plugin system for custom controls, team collaboration features
+
+---
+
+## License
+
+MIT © 2026 Pedro Rojas — SolucionesPro (Ecuador)
+
+---
+
+*SP-DevControl v2.0.0 — Built with ❤️ in Ecuador*

@@ -1,3 +1,11 @@
+/**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
+
 import http from 'http'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { createApiServer } from '../src/api.js'

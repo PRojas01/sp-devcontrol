@@ -1,3 +1,11 @@
+/**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
+
 import http from 'http'
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { resolve, join } from 'path'
@@ -67,6 +75,9 @@ function resolveProjectRoot(req: Request): string {
   return process.cwd()
 }
 
+// CORS middleware — note: the real network boundary is 127.0.0.1 binding in listen().
+// CORS only affects browser cross-origin requests; programmatic clients bypass it.
+// Auth token (below) is the actual security control for programmatic access.
 function corsLocalhostMiddleware(req: Request, res: Response, next: NextFunction): void {
   const origin = req.headers.origin ?? ''
   const isLocal =
@@ -80,9 +91,10 @@ function corsLocalhostMiddleware(req: Request, res: Response, next: NextFunction
     return
   }
 
-  res.setHeader('Access-Control-Allow-Origin', origin || '*')
+  if (origin) res.setHeader('Access-Control-Allow-Origin', origin)
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Project-Path')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Project-Path, Authorization')
+  res.setHeader('Vary', 'Origin')
 
   if (req.method === 'OPTIONS') {
     res.status(204).end()
@@ -92,11 +104,24 @@ function corsLocalhostMiddleware(req: Request, res: Response, next: NextFunction
   next()
 }
 
-export function createApiServer(port: number): http.Server {
+function buildAuthMiddleware(token: string) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (req.path === '/health') { next(); return }
+    const auth = req.headers['authorization']
+    if (!auth || auth !== `Bearer ${token}`) {
+      res.status(401).json({ error: 'Unauthorized: missing or invalid Authorization header' })
+      return
+    }
+    next()
+  }
+}
+
+export function createApiServer(port: number, token?: string): http.Server {
   const app = express()
 
-  app.use(express.json())
+  app.use(express.json({ limit: '1mb' }))
   app.use(corsLocalhostMiddleware)
+  if (token) app.use(buildAuthMiddleware(token))
 
   app.get('/health', (_req: Request, res: Response) => {
     res.json({
@@ -155,7 +180,7 @@ export function createApiServer(port: number): http.Server {
       const projectRoot = resolveProjectRoot(req)
       const db = getProjectDb(projectRoot)
       const limit = parseInt(String(req.query['limit'] ?? '20'), 10)
-      res.json(listSessions(db, isNaN(limit) ? 20 : limit))
+      res.json(listSessions(db, Math.min(isNaN(limit) ? 20 : Math.max(1, limit), 200)))
     } catch (err) {
       res.status(500).json({ error: String(err) })
     }
@@ -376,11 +401,11 @@ export function createApiServer(port: number): http.Server {
 
 let activeServer: http.Server | null = null
 
-export async function startApiServer(port: number = DEFAULT_PORT): Promise<void> {
+export async function startApiServer(port: number = DEFAULT_PORT, token?: string): Promise<void> {
   if (activeServer) return
 
   return new Promise((resolvePromise, reject) => {
-    const server = createApiServer(port)
+    const server = createApiServer(port, token)
     server.listen(port, '127.0.0.1', () => {
       activeServer = server
       resolvePromise()

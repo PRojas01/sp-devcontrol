@@ -1,3 +1,11 @@
+/**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
+
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 export type ChangeStatus = 'pending' | 'approved' | 'rejected' | 'partial'
 export type FileEventType = 'modified' | 'added' | 'deleted_attempt'

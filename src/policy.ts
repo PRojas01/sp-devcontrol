@@ -1,7 +1,33 @@
+/**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
+
 import { readFileSync, existsSync, writeFileSync } from 'fs'
-import { resolve } from 'path'
+import { resolve, normalize } from 'path'
 import { CONTROL_DIR } from './paths.js'
 import type { ApprovalRecord } from './types.js'
+
+const COMMAND_PREFIXES = ['sudo ', 'npx ', 'command ', 'time ', 'env ', 'nohup ', 'nice ', 'eval ', 'xargs ', 'timeout ', 'stdbuf ', 'bundled ']
+
+function normalizeCommand(cmd: string): string {
+  let normalized = cmd.trim().replace(/\s+/g, ' ')
+  for (const prefix of COMMAND_PREFIXES) {
+    while (normalized.startsWith(prefix)) {
+      normalized = normalized.slice(prefix.length).trimStart()
+    }
+  }
+  return normalized
+}
+
+function commandMatches(command: string, pattern: string): boolean {
+  const cmd = normalizeCommand(command)
+  const pat = normalizeCommand(pattern)
+  return cmd === pat || cmd.startsWith(pat + ' ') || cmd.startsWith(pat + '\t')
+}
 
 export interface PolicyPathResult {
   path: string
@@ -86,35 +112,51 @@ export function revokeCommand(projectRoot: string, command: string): PolicyFile 
 
 export function evaluatePathRisk(projectRoot: string, filepath: string, approvals: ApprovalRecord[] = []): PolicyPathResult {
   const policy = loadPolicy(projectRoot)
-  const normalized = filepath.replace(/\\/g, '/')
-  const matched = policy.protectedPaths.find(pattern => matchesPattern(normalized, pattern))
-  const approval = approvals.find(entry => entry.approvalType === 'path' && matchesPattern(normalized, entry.target))
+  const absRoot = resolve(projectRoot)
+  const abs = resolve(projectRoot, filepath)
+  const inProject = abs.startsWith(absRoot + '/') || abs === absRoot
+  // Paths outside projectRoot cannot match relative policy patterns — prevents path traversal bypass
+  const normalized = inProject ? abs.slice(absRoot.length + 1).replace(/\\/g, '/') : null
+  const matched = normalized ? policy.protectedPaths.find(pattern => matchesPattern(normalized, pattern)) : undefined
+  const approval = normalized ? approvals.find(entry => entry.approvalType === 'path' && matchesPattern(normalized, entry.target)) : undefined
+
+  // Use normalized (relative) path for risk inference when in project, otherwise fall back to original
+  const riskTarget = normalized ?? filepath.replace(/\\/g, '/')
 
   if (matched) {
     return {
       path: filepath,
       protected: true,
       approved: Boolean(approval),
-      risk: inferPathRisk(normalized),
+      risk: inferPathRisk(riskTarget),
       reason: approval
         ? `Path matches protected pattern: ${matched}. Session approval exists: ${approval.target}`
         : `Path matches protected pattern: ${matched}`,
     }
   }
 
+  if (!inProject) {
+    return {
+      path: filepath,
+      protected: true,
+      approved: false,
+      risk: 'HIGH',
+      reason: 'Path resolves outside project root — blocked: potential path traversal attack',
+    }
+  }
   return {
     path: filepath,
     protected: false,
     approved: Boolean(approval),
-    risk: inferPathRisk(normalized),
+    risk: inferPathRisk(riskTarget),
     reason: approval
-      ? `Path is not protected but matches session approval: ${approval.target}`
+      ? 'Path is not protected but matches session approval: ' + approval.target
       : 'Path does not match protected patterns',
   }
 }
 
 export function evaluateCommandRisk(projectRoot: string, command: string, approvals: ApprovalRecord[] = []): PolicyCommandResult {
-  const sessionApproval = approvals.find(entry => entry.approvalType === 'command' && command.includes(entry.target))
+  const sessionApproval = approvals.find(entry => entry.approvalType === 'command' && commandMatches(command, entry.target))
   if (sessionApproval) {
     return {
       command,
@@ -125,7 +167,7 @@ export function evaluateCommandRisk(projectRoot: string, command: string, approv
   }
 
   const policy = loadPolicy(projectRoot)
-  const approved = policy.approvedCommands.find(entry => command.includes(entry))
+  const approved = policy.approvedCommands.find(entry => commandMatches(command, entry))
   if (approved) {
     return {
       command,
@@ -135,7 +177,7 @@ export function evaluateCommandRisk(projectRoot: string, command: string, approv
     }
   }
 
-  const matched = policy.blockedCommands.find(entry => command.includes(entry))
+  const matched = policy.blockedCommands.find(entry => commandMatches(command, entry))
   if (matched) {
     return {
       command,

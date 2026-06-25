@@ -1,3 +1,11 @@
+/**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
+
 import chokidar, { FSWatcher } from 'chokidar'
 import { readFileSync, existsSync, mkdirSync, copyFileSync } from 'fs'
 import { resolve, relative, join } from 'path'
@@ -124,12 +132,23 @@ export class FileWatcher {
     this.addToBurst(rel, before, '', 'deleted_attempt')
   }
 
+  private isIgnored(filepath: string): boolean {
+    const ignoredPatterns = [
+      ...this.config.scope.watchIgnore,
+      'node_modules',
+      '.git',
+      '.devcontrol',
+    ]
+    return ignoredPatterns.some(p => filepath.startsWith(p + '/') || filepath.includes('/' + p + '/') || filepath === p)
+  }
+
   private addToBurst(
     filepath: string,
     before: string,
     after: string,
     eventType: 'modified' | 'added' | 'deleted_attempt',
   ): void {
+    if (this.isIgnored(filepath)) return
     if (!this.pending) {
       this.pending = { files: new Map(), timer: setTimeout(() => void this.flushBurst(), BURST_WINDOW_MS) }
     } else {

@@ -6,11 +6,10 @@
 - **CLI**: Commander.js (37 comandos)
 - **Monitoreo**: Chokidar (polling Windows, eventos Linux)
 - **Git**: simple-git
-- **Storage**: JSON portable con escritura atómica (.devcontrol/storage/)
+- **Storage**: JSON portable con escritura atómica (.devcontrol/storage/) + SQLite
 - **REST API**: Express 4 en :7891 (daemon mode)
 - **MCP Server**: @modelcontextprotocol/sdk — stdio + HTTP/SSE en :7893
-- **WebSocket**: ws en :7892
-- **Distribución**: @yao-pkg/pkg → binarios standalone Linux/Windows
+- **Distribución**: @yao-pkg/pkg → binarios standalone Linux/Windows de 53MB
 - **UI terminal**: chalk, boxen, cli-table3, inquirer
 
 ## Puertos fijos (no modificar)
@@ -19,7 +18,6 @@
 |---|---|---|
 | REST API | 7891 | localhost |
 | MCP HTTP | 7893 | localhost |
-| WebSocket | 7892 | localhost |
 
 ## Módulos del sistema
 
@@ -66,14 +64,23 @@ Almacenamiento en JSON con las colecciones: sessions, changes, sessionRequests, 
 6. `session:close` → cierra sesión → actualiza artefactos
 7. `report:compliance` → genera evidencia normativa
 
-## Arquitectura objetivo (v2.0)
+## Roadmap
+
+### v2.1 — En desarrollo
 - **Desktop**: Tauri (Rust backend + React frontend)
-- **Storage**: SQLite con migraciones
-- **Daemon**: Proceso de background para monitoreo continuo
+- **Storage**: SQLite como storage primario (JSON como fallback)
 - **UI**: Panel visual de sesiones, cambios y aprobaciones
+- **WebSocket**: ws en :7892 para notificaciones en tiempo real
 
 ## Integraciones
-- Claude Code (CLAUDE.md)
-- Cursor (.cursorrules)
-- GitHub Copilot (copilot-instructions.md)
-- Windsurf (.windsurfrules)
+- Claude Code (CLAUDE.md + MCP)
+- Cursor (.cursorrules + MCP)
+- opencode (opencode.json + MCP)
+- GitHub Copilot (copilot-instructions.md + MCP)
+- Windsurf (.windsurfrules + MCP)
+
+### Protocolo MCP
+El servidor MCP en :7893 es el mecanismo de integración universal.
+Soporta modo stdio (para editores agénticos) y HTTP/SSE (para herramientas externas).
+6 tools expuestas: project:status, session:[start|check|close], change:[approve|reject].
+\n---\n_SP-DevControl v2.0.0 — Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador) — MIT License_

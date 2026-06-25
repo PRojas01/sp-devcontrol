@@ -1,3 +1,11 @@
+/**
+ * SP-DevControl v2.0.0
+ * Local governance layer for AI-assisted development
+ *
+ * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)
+ * MIT License — see LICENSE file for details
+ */
+
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { dirname, join, resolve } from 'path'
 import { CONTROL_DIR } from './paths.js'
@@ -34,6 +42,10 @@ function currentFileContent(projectRoot: string, filepath: string): string {
 
 function writeFileState(projectRoot: string, filepath: string, content: string): void {
   const absolute = resolve(projectRoot, filepath)
+  const root = resolve(projectRoot)
+  if (!absolute.startsWith(root + '/') && absolute !== root) {
+    throw new Error(`Path traversal blocked: ${filepath} resolves outside project root`)
+  }
   if (content === '') {
     if (existsSync(absolute)) rmSync(absolute, { force: true })
     return

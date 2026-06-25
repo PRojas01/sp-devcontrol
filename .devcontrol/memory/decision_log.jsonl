@@ -1,4 +1,0 @@
-{"date":"2026-06-13","type":"branding","decision":"Adoptar SP-DevControl como marca oficial del producto.","status":"active"}
-{"date":"2026-06-13","type":"architecture","decision":"Tomar Tauri + Rust + React + TypeScript + SQLite como arquitectura objetivo.","status":"active"}
-{"date":"2026-06-13","type":"governance","decision":"Aplicar auto control del propio producto desde el dia 1.","status":"active"}
-{"date":"2026-06-13","type":"operations","decision":"Usar memoria local y checklist por sesion para reducir tokens y mejorar continuidad.","status":"active"}
