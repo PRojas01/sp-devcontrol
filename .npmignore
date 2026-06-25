@@ -1,0 +1,18 @@
+# Dev y build
+src/
+bundle/
+release/
+scripts/
+tests/
+tsconfig.json
+.devcontrol/
+.cursor/
+.windsurf/
+*.sh
+.cursorrules
+.windsurfrules
+PLAN_COMPLETO_DEVCONTROL.md
+BACKLOG_MVP_SP_DEVCONTROL.md
+CLAUDE.md
+opencode.json
+docs/CLUSTER_CONTRACTS.md

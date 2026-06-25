@@ -895,6 +895,31 @@ program
     }
   })
 
+// ─── Storage Backend ─────────────────────────────────────────────────────────
+
+program
+  .command('storage:backend')
+  .description('Set storage backend: json (default) or sqlite')
+  .argument('<backend>', 'json | sqlite')
+  .action(async (backend: string) => {
+    if (backend !== 'json' && backend !== 'sqlite') {
+      console.error('Backend must be "json" or "sqlite"')
+      process.exit(1)
+    }
+    if (!hasConfig()) {
+      console.error('No DevControl config found. Run: devcontrol init')
+      process.exit(1)
+    }
+    const config = loadConfig()
+    ;(config as unknown as Record<string, unknown>).storageBackend = backend
+    saveConfig(config)
+    console.log(`Storage backend set to: ${backend}`)
+    if (backend === 'sqlite') {
+      console.log('Tip: existing data in .devcontrol/storage/devcontrol.db.json will not be migrated automatically.')
+      console.log('Run: devcontrol storage:migrate to copy existing data to SQLite.')
+    }
+  })
+
 program.parseAsync(process.argv).catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error)
   console.error(`Error: ${message}`)

@@ -42,6 +42,31 @@ sp-devcontrol session:change:reject --change-id <id>
 sp-devcontrol session:close --session <id>
 ```
 
+## Integración con editores agénticos (MCP)
+
+### Claude Code
+```bash
+# Añadir como MCP server
+claude mcp add devcontrol -- devcontrol mcp:stdio
+# O en modo HTTP (requiere daemon activo)
+# En .claude/mcp.json: { "mcpServers": { "devcontrol": { "type": "sse", "url": "http://localhost:7893/mcp" } } }
+```
+
+### opencode / Cursor / Windsurf
+```bash
+# Genera configs para todos los editores
+devcontrol skill:generate --mcp-port 7893
+# Arranca el servidor MCP
+devcontrol mcp:serve
+```
+
+### Daemon (background)
+```bash
+devcontrol daemon start     # arranca API :7891 + MCP :7893
+devcontrol daemon status    # verifica que está corriendo
+devcontrol daemon stop
+```
+
 ## Comandos
 
 ### Proyecto

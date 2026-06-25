@@ -29,6 +29,17 @@ const DEFAULT_PORT = 7891
 const GLOBAL_PROJECTS_FILE = join(homedir(), '.devcontrol', 'projects.json')
 const START_TIME = Date.now()
 
+const dbCache = new Map<string, ReturnType<typeof getDb>>()
+
+function getProjectDb(projectRoot: string): ReturnType<typeof getDb> {
+  const dbPath = resolve(join(projectRoot, DB_PATH))
+  const key = dbPath.endsWith('.json') ? dbPath : `${dbPath}.json`
+  if (!dbCache.has(key)) {
+    dbCache.set(key, getDb(join(projectRoot, DB_PATH)))
+  }
+  return dbCache.get(key)!
+}
+
 interface ProjectEntry {
   path: string
   name: string
@@ -142,8 +153,7 @@ export function createApiServer(port: number): http.Server {
   app.get('/sessions', (req: Request, res: Response) => {
     try {
       const projectRoot = resolveProjectRoot(req)
-      const dbPath = join(projectRoot, DB_PATH)
-      const db = getDb(dbPath)
+      const db = getProjectDb(projectRoot)
       const limit = parseInt(String(req.query['limit'] ?? '20'), 10)
       res.json(listSessions(db, isNaN(limit) ? 20 : limit))
     } catch (err) {
@@ -168,8 +178,7 @@ export function createApiServer(port: number): http.Server {
         } catch { /* use directory name */ }
       }
 
-      const dbPath = join(projectRoot, DB_PATH)
-      const db = getDb(dbPath)
+      const db = getProjectDb(projectRoot)
       const id = generateSessionId()
       const session = createSession(id, projectName, agent ?? 'claude-code', 'watch')
       session.objective = objective
@@ -184,8 +193,7 @@ export function createApiServer(port: number): http.Server {
   app.get('/sessions/:id', (req: Request, res: Response) => {
     try {
       const projectRoot = resolveProjectRoot(req)
-      const dbPath = join(projectRoot, DB_PATH)
-      const db = getDb(dbPath)
+      const db = getProjectDb(projectRoot)
       const session = getSession(db, req.params['id']!)
       if (!session) {
         res.status(404).json({ error: 'Session not found' })
@@ -200,8 +208,7 @@ export function createApiServer(port: number): http.Server {
   app.post('/sessions/:id/close', (req: Request, res: Response) => {
     try {
       const projectRoot = resolveProjectRoot(req)
-      const dbPath = join(projectRoot, DB_PATH)
-      const db = getDb(dbPath)
+      const db = getProjectDb(projectRoot)
       const session = getSession(db, req.params['id']!)
       if (!session) {
         res.status(404).json({ error: 'Session not found' })
@@ -226,8 +233,7 @@ export function createApiServer(port: number): http.Server {
   app.get('/sessions/:id/changes', (req: Request, res: Response) => {
     try {
       const projectRoot = resolveProjectRoot(req)
-      const dbPath = join(projectRoot, DB_PATH)
-      const db = getDb(dbPath)
+      const db = getProjectDb(projectRoot)
       const session = getSession(db, req.params['id']!)
       if (!session) {
         res.status(404).json({ error: 'Session not found' })
@@ -242,8 +248,7 @@ export function createApiServer(port: number): http.Server {
   app.post('/sessions/:id/changes/:cid/approve', (req: Request, res: Response) => {
     try {
       const projectRoot = resolveProjectRoot(req)
-      const dbPath = join(projectRoot, DB_PATH)
-      const db = getDb(dbPath)
+      const db = getProjectDb(projectRoot)
       const { id, cid } = req.params as { id: string; cid: string }
       const { message } = req.body as { message?: string }
 
@@ -289,8 +294,7 @@ export function createApiServer(port: number): http.Server {
   app.post('/sessions/:id/changes/:cid/reject', (req: Request, res: Response) => {
     try {
       const projectRoot = resolveProjectRoot(req)
-      const dbPath = join(projectRoot, DB_PATH)
-      const db = getDb(dbPath)
+      const db = getProjectDb(projectRoot)
       const { id, cid } = req.params as { id: string; cid: string }
       const { message } = req.body as { message?: string }
 
@@ -340,7 +344,7 @@ export function createApiServer(port: number): http.Server {
 
       if (existsSync(resolve(dbPath.endsWith('.json') ? dbPath : `${dbPath}.json`))) {
         try {
-          const db = getDb(dbPath)
+          const db = getProjectDb(projectRoot)
           const sessions = listSessions(db, 1000)
           totalSessions = sessions.length
           activeSessions = sessions.filter(s => !s.endedAt).length
@@ -392,6 +396,7 @@ export async function stopApiServer(): Promise<void> {
     activeServer!.close(err => {
       if (err) { reject(err); return }
       activeServer = null
+      dbCache.clear()
       resolvePromise()
     })
   })

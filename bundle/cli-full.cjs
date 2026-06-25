@@ -4171,7 +4171,8 @@ var init_config = __esm({
         sessionTokenBudget: 12e3,
         tokenAlertThreshold: 0.85
       },
-      structure: "default"
+      structure: "default",
+      storageBackend: "json"
     };
   }
 });
@@ -30399,6 +30400,14 @@ __export(api_exports, {
   startApiServer: () => startApiServer,
   stopApiServer: () => stopApiServer
 });
+function getProjectDb(projectRoot) {
+  const dbPath = (0, import_path15.resolve)((0, import_path15.join)(projectRoot, DB_PATH));
+  const key = dbPath.endsWith(".json") ? dbPath : `${dbPath}.json`;
+  if (!dbCache.has(key)) {
+    dbCache.set(key, getDb((0, import_path15.join)(projectRoot, DB_PATH)));
+  }
+  return dbCache.get(key);
+}
 function readProjectsRegistry() {
   if (!(0, import_fs16.existsSync)(GLOBAL_PROJECTS_FILE))
     return [];
@@ -30491,8 +30500,7 @@ function createApiServer(port) {
   app.get("/sessions", (req, res) => {
     try {
       const projectRoot = resolveProjectRoot(req);
-      const dbPath = (0, import_path15.join)(projectRoot, DB_PATH);
-      const db2 = getDb(dbPath);
+      const db2 = getProjectDb(projectRoot);
       const limit = parseInt(String(req.query["limit"] ?? "20"), 10);
       res.json(listSessions(db2, isNaN(limit) ? 20 : limit));
     } catch (err) {
@@ -30515,8 +30523,7 @@ function createApiServer(port) {
         } catch {
         }
       }
-      const dbPath = (0, import_path15.join)(projectRoot, DB_PATH);
-      const db2 = getDb(dbPath);
+      const db2 = getProjectDb(projectRoot);
       const id = generateSessionId();
       const session = createSession(id, projectName, agent ?? "claude-code", "watch");
       session.objective = objective;
@@ -30530,8 +30537,7 @@ function createApiServer(port) {
   app.get("/sessions/:id", (req, res) => {
     try {
       const projectRoot = resolveProjectRoot(req);
-      const dbPath = (0, import_path15.join)(projectRoot, DB_PATH);
-      const db2 = getDb(dbPath);
+      const db2 = getProjectDb(projectRoot);
       const session = getSession(db2, req.params["id"]);
       if (!session) {
         res.status(404).json({ error: "Session not found" });
@@ -30545,8 +30551,7 @@ function createApiServer(port) {
   app.post("/sessions/:id/close", (req, res) => {
     try {
       const projectRoot = resolveProjectRoot(req);
-      const dbPath = (0, import_path15.join)(projectRoot, DB_PATH);
-      const db2 = getDb(dbPath);
+      const db2 = getProjectDb(projectRoot);
       const session = getSession(db2, req.params["id"]);
       if (!session) {
         res.status(404).json({ error: "Session not found" });
@@ -30570,8 +30575,7 @@ function createApiServer(port) {
   app.get("/sessions/:id/changes", (req, res) => {
     try {
       const projectRoot = resolveProjectRoot(req);
-      const dbPath = (0, import_path15.join)(projectRoot, DB_PATH);
-      const db2 = getDb(dbPath);
+      const db2 = getProjectDb(projectRoot);
       const session = getSession(db2, req.params["id"]);
       if (!session) {
         res.status(404).json({ error: "Session not found" });
@@ -30585,8 +30589,7 @@ function createApiServer(port) {
   app.post("/sessions/:id/changes/:cid/approve", (req, res) => {
     try {
       const projectRoot = resolveProjectRoot(req);
-      const dbPath = (0, import_path15.join)(projectRoot, DB_PATH);
-      const db2 = getDb(dbPath);
+      const db2 = getProjectDb(projectRoot);
       const { id, cid } = req.params;
       const { message } = req.body;
       const session = getSession(db2, id);
@@ -30626,8 +30629,7 @@ function createApiServer(port) {
   app.post("/sessions/:id/changes/:cid/reject", (req, res) => {
     try {
       const projectRoot = resolveProjectRoot(req);
-      const dbPath = (0, import_path15.join)(projectRoot, DB_PATH);
-      const db2 = getDb(dbPath);
+      const db2 = getProjectDb(projectRoot);
       const { id, cid } = req.params;
       const { message } = req.body;
       const session = getSession(db2, id);
@@ -30672,7 +30674,7 @@ function createApiServer(port) {
       let totalSessions = 0;
       if ((0, import_fs16.existsSync)((0, import_path15.resolve)(dbPath.endsWith(".json") ? dbPath : `${dbPath}.json`))) {
         try {
-          const db2 = getDb(dbPath);
+          const db2 = getProjectDb(projectRoot);
           const sessions = listSessions(db2, 1e3);
           totalSessions = sessions.length;
           activeSessions = sessions.filter((s) => !s.endedAt).length;
@@ -30721,11 +30723,12 @@ async function stopApiServer() {
         return;
       }
       activeServer = null;
+      dbCache.clear();
       resolvePromise();
     });
   });
 }
-var import_http, import_fs16, import_path15, import_os2, import_module, import_express, require2, PKG_VERSION, DEFAULT_PORT, GLOBAL_PROJECTS_FILE, START_TIME, activeServer;
+var import_http, import_fs16, import_path15, import_os2, import_module, import_express, require2, PKG_VERSION, DEFAULT_PORT, GLOBAL_PROJECTS_FILE, START_TIME, dbCache, activeServer;
 var init_api = __esm({
   "dist/api.js"() {
     "use strict";
@@ -30744,6 +30747,7 @@ var init_api = __esm({
     DEFAULT_PORT = 7891;
     GLOBAL_PROJECTS_FILE = (0, import_path15.join)((0, import_os2.homedir)(), ".devcontrol", "projects.json");
     START_TIME = Date.now();
+    dbCache = /* @__PURE__ */ new Map();
     activeServer = null;
   }
 });
@@ -73768,6 +73772,24 @@ Skills generated for: ${opts.editor} (${written.length} files)`);
   } catch (err) {
     console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
+  }
+});
+program2.command("storage:backend").description("Set storage backend: json (default) or sqlite").argument("<backend>", "json | sqlite").action(async (backend) => {
+  if (backend !== "json" && backend !== "sqlite") {
+    console.error('Backend must be "json" or "sqlite"');
+    process.exit(1);
+  }
+  if (!hasConfig()) {
+    console.error("No DevControl config found. Run: devcontrol init");
+    process.exit(1);
+  }
+  const config2 = loadConfig();
+  config2.storageBackend = backend;
+  saveConfig(config2);
+  console.log(`Storage backend set to: ${backend}`);
+  if (backend === "sqlite") {
+    console.log("Tip: existing data in .devcontrol/storage/devcontrol.db.json will not be migrated automatically.");
+    console.log("Run: devcontrol storage:migrate to copy existing data to SQLite.");
   }
 });
 program2.parseAsync(process.argv).catch((error51) => {

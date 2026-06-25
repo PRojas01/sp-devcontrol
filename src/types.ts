@@ -59,6 +59,7 @@ export interface DevSentinelConfig {
     tokenAlertThreshold: number
   }
   structure: string
+  storageBackend?: 'json' | 'sqlite'  // default 'json'
 }
 
 export interface FileChange {

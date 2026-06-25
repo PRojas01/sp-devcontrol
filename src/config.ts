@@ -58,6 +58,7 @@ export const DEFAULT_CONFIG: DevSentinelConfig = {
     tokenAlertThreshold: 0.85,
   },
   structure: 'default',
+  storageBackend: 'json',
 }
 
 export function loadConfig(projectRoot: string = process.cwd()): DevSentinelConfig {
