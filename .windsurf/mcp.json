@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "devcontrol": {
+      "type": "sse",
+      "url": "http://localhost:7893/mcp"
+    }
+  }
+}

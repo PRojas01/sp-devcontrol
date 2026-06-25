@@ -22,6 +22,8 @@ export function buildInjection(config: DevSentinelConfig): InjectionResult {
   const cursorrules = buildCursorrules(config, sections)
   const copilotInstructions = buildCopilotInstructions(config, sections)
   const agentSettings = buildAgentSettings(config)
+  const opencodeJson = buildOpencodeJson(config)
+  const mcpConfig = buildMcpConfig()
 
   return {
     claudeMd,
@@ -29,6 +31,8 @@ export function buildInjection(config: DevSentinelConfig): InjectionResult {
     windsurfrules: cursorrules,
     copilotInstructions,
     agentSettings,
+    opencodeJson,
+    mcpConfig,
   }
 }
 
@@ -59,7 +63,7 @@ ${config.stack.join(' · ')}
 ${sections.join('\n\n---\n\n')}
 
 ---
-*SP-DevControl v1.0.0 — Generated ${new Date().toISOString()}*
+*SP-DevControl v2.0.0 — Generated ${new Date().toISOString()}*
 `
 }
 
@@ -100,11 +104,48 @@ function buildAgentSettings(config: DevSentinelConfig): Record<string, unknown> 
     },
     mcpServers: {
       allowed: config.skills.allowedMcpServers,
+      devcontrol: {
+        type: 'sse',
+        url: 'http://localhost:7893/mcp',
+      },
     },
     spDevControl: {
       project: config.project,
       version: config.version,
       governanceActive: true,
+    },
+  }
+}
+
+function buildOpencodeJson(_config: DevSentinelConfig): string {
+  const cfg = {
+    model: {
+      modelID: 'redia-generate',
+      providerID: 'openai',
+    },
+    provider: {
+      openai: {
+        apiKey: 'local-cluster-key',
+        baseURL: 'http://192.168.18.100:8091/v1',
+      },
+    },
+    mcpServers: {
+      devcontrol: {
+        type: 'sse',
+        url: 'http://localhost:7893/mcp',
+      },
+    },
+  }
+  return JSON.stringify(cfg, null, 2)
+}
+
+function buildMcpConfig(): Record<string, unknown> {
+  return {
+    mcpServers: {
+      devcontrol: {
+        type: 'sse',
+        url: 'http://localhost:7893/mcp',
+      },
     },
   }
 }
@@ -115,12 +156,23 @@ export function writeInjectionFiles(result: InjectionResult, projectRoot: string
   const injectedDir = join(projectRoot, '.devcontrol', 'injected')
   if (!existsSync(injectedDir)) mkdirSync(injectedDir, { recursive: true })
 
+  const cursorDir = join(projectRoot, '.cursor')
+  if (!existsSync(cursorDir)) mkdirSync(cursorDir, { recursive: true })
+
+  const windsurfDir = join(projectRoot, '.windsurf')
+  if (!existsSync(windsurfDir)) mkdirSync(windsurfDir, { recursive: true })
+
+  const mcpConfigJson = JSON.stringify(result.mcpConfig, null, 2)
+
   const files: Array<[string, string]> = [
     [join(projectRoot, 'CLAUDE.md'), result.claudeMd],
     [join(projectRoot, '.cursorrules'), result.cursorrules],
     [join(projectRoot, '.windsurfrules'), result.windsurfrules],
     [join(injectedDir, 'copilot-instructions.md'), result.copilotInstructions],
     [join(injectedDir, 'agent-settings.json'), JSON.stringify(result.agentSettings, null, 2)],
+    [join(projectRoot, 'opencode.json'), result.opencodeJson],
+    [join(cursorDir, 'mcp.json'), mcpConfigJson],
+    [join(windsurfDir, 'mcp.json'), mcpConfigJson],
   ]
 
   for (const [filePath, content] of files) {

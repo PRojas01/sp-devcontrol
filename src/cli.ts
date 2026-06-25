@@ -771,6 +771,113 @@ program.command('report:session')
     closeDb()
   })
 
+// ─── Daemon ─────────────────────────────────────────────────────────────────
+
+const daemonCmd = new Command('daemon').description('Manage the DevControl background daemon')
+
+daemonCmd
+  .command('start')
+  .description('Start daemon')
+  .action(async () => {
+    try {
+      const { startDaemon } = await import('./daemon.js')
+      await startDaemon()
+    } catch (err) {
+      console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      process.exit(1)
+    }
+  })
+
+daemonCmd
+  .command('stop')
+  .description('Stop daemon')
+  .action(async () => {
+    try {
+      const { stopDaemon } = await import('./daemon.js')
+      await stopDaemon()
+    } catch (err) {
+      console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      process.exit(1)
+    }
+  })
+
+daemonCmd
+  .command('status')
+  .description('Show daemon status')
+  .action(async () => {
+    try {
+      const { getDaemonStatus } = await import('./daemon.js')
+      const status = await getDaemonStatus()
+      if (status.running) {
+        console.log(`Daemon running  PID ${status.pid} | API :${status.apiPort} | WS :${status.wsPort}`)
+        if (status.startedAt) console.log(`  Started: ${new Date(status.startedAt).toLocaleString()}`)
+        console.log(`  Projects watched: ${status.projectsWatched}`)
+      } else {
+        console.log('Daemon not running')
+      }
+    } catch (err) {
+      console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      process.exit(1)
+    }
+  })
+
+program.addCommand(daemonCmd)
+
+// ─── MCP Server ──────────────────────────────────────────────────────────────
+
+program
+  .command('mcp:serve')
+  .description('Start MCP server (HTTP/SSE) for editor integration')
+  .option('--port <port>', 'Port (default 7893)', '7893')
+  .action(async (opts: { port: string }) => {
+    try {
+      const { serveMcp } = await import('./mcp.js')
+      await serveMcp({ port: parseInt(opts.port, 10) })
+    } catch (err) {
+      console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      process.exit(1)
+    }
+  })
+
+program
+  .command('mcp:stdio')
+  .description('Start MCP server in stdio mode (for claude mcp add)')
+  .action(async () => {
+    try {
+      const { serveStdio } = await import('./mcp.js')
+      await serveStdio()
+    } catch (err) {
+      console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      process.exit(1)
+    }
+  })
+
+// ─── Skill Generate ──────────────────────────────────────────────────────────
+
+program
+  .command('skill:generate')
+  .description('Generate skill/tool files for agentic editors')
+  .option('--editor <editor>', 'Target editor: claude|opencode|cursor|windsurf|copilot|all', 'all')
+  .option('--mcp-port <port>', 'MCP server port for config files', '7893')
+  .action(async (opts: { editor: string; mcpPort: string }) => {
+    try {
+      const projectRoot = process.cwd()
+      const { loadConfig, hasConfig } = await import('./config.js')
+      if (!hasConfig()) {
+        console.error('No DevControl config found. Run: devcontrol init')
+        process.exit(1)
+      }
+      const config = loadConfig()
+      const { writeSkills } = await import('./skill.js')
+      const written = writeSkills(projectRoot, config, opts.editor as import('./skill.js').EditorTarget, parseInt(opts.mcpPort, 10))
+      written.forEach(f => console.log(`  wrote  ${f}`))
+      console.log(`\nSkills generated for: ${opts.editor} (${written.length} files)`)
+    } catch (err) {
+      console.error(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      process.exit(1)
+    }
+  })
+
 program.parseAsync(process.argv).catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error)
   console.error(`Error: ${message}`)

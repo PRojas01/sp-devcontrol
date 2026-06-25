@@ -155,6 +155,8 @@ export interface InjectionResult {
   windsurfrules: string
   copilotInstructions: string
   agentSettings: Record<string, unknown>
+  opencodeJson: string
+  mcpConfig: Record<string, unknown>
 }
 
 export interface MemoryScanResult {

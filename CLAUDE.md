@@ -114,4 +114,4 @@ NEVER log personal information:
 Sanitize objects before logging: omit email, password, ssn, creditCard fields.
 
 ---
-*SP-DevControl v1.0.0 — Generated 2026-06-15T15:17:41.102Z*
+*SP-DevControl v2.0.0 — Generated 2026-06-25T18:00:06.219Z*

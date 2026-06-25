@@ -1,0 +1,18 @@
+{
+  "model": {
+    "modelID": "redia-generate",
+    "providerID": "openai"
+  },
+  "provider": {
+    "openai": {
+      "apiKey": "local-cluster-key",
+      "baseURL": "http://192.168.18.100:8091/v1"
+    }
+  },
+  "mcpServers": {
+    "devcontrol": {
+      "type": "sse",
+      "url": "http://localhost:7893/mcp"
+    }
+  }
+}
