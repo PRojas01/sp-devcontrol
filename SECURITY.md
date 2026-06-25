@@ -36,7 +36,7 @@ Do not report security issues via public GitHub issues or discussions.
 
 ### Authentication
 - Token-based auth for API (`/api/*`) and MCP endpoints
-- Tokens stored in `.devcontrol/token` with restricted permissions
+- Tokens stored in `~/.devcontrol/api-token` (chmod 600, outside project root)
 - No hardcoded credentials
 
 ### Path Traversal Prevention

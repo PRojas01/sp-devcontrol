@@ -23,7 +23,7 @@ Be respectful, constructive, and professional. We enforce a zero-tolerance polic
 ### Pull Requests
 
 1. Fork the repository
-2. Create a branch from `main`: `git checkout -b feat/your-feature`
+2. Create a branch from `master`: `git checkout -b feat/your-feature`
 3. Follow code conventions (see below)
 4. Write tests for new functionality
 5. Ensure all tests pass: `npm test`

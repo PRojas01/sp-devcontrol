@@ -206,7 +206,7 @@ devcontrol inject
 └─────────────────────────────────────────────┘
 ```
 
-**38 commands** · **6 MCP tools** · **36 compliance controls** · **5 editor integrations**
+**37 commands** · **6 MCP tools** · **36 compliance controls** · **5 editor integrations**
 
 ---
 
