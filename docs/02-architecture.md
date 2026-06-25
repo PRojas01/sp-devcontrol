@@ -1,19 +1,31 @@
 # Arquitectura — SP-DevControl
 
-## Stack actual (MVP)
-- **Runtime**: Node.js ≥ 20
+## Stack v2.0 (actual)
+- **Runtime**: Node.js ≥ 18
 - **Lenguaje**: TypeScript (ESM, strict)
-- **CLI**: Commander.js
-- **Monitoreo**: Chokidar (polling en Windows, eventos en Linux)
+- **CLI**: Commander.js (37 comandos)
+- **Monitoreo**: Chokidar (polling Windows, eventos Linux)
 - **Git**: simple-git
 - **Storage**: JSON portable con escritura atómica (.devcontrol/storage/)
+- **REST API**: Express 4 en :7891 (daemon mode)
+- **MCP Server**: @modelcontextprotocol/sdk — stdio + HTTP/SSE en :7893
+- **WebSocket**: ws en :7892
+- **Distribución**: @yao-pkg/pkg → binarios standalone Linux/Windows
 - **UI terminal**: chalk, boxen, cli-table3, inquirer
+
+## Puertos fijos (no modificar)
+
+| Servicio | Puerto | Scope |
+|---|---|---|
+| REST API | 7891 | localhost |
+| MCP HTTP | 7893 | localhost |
+| WebSocket | 7892 | localhost |
 
 ## Módulos del sistema
 
 | Módulo | Archivo | Responsabilidad |
 |---|---|---|
-| CLI Entry | cli.ts | 33 comandos, routing, error handling |
+| CLI Entry | cli.ts | 37 comandos, daemon worker mode, routing |
 | Config | config.ts | Carga, merge y persistencia de configuración |
 | Storage | storage.ts | Backend JSON portable con escritura atómica y recuperación |
 | Policy | policy.ts | Motor de políticas: rutas protegidas, comandos, riesgo |
@@ -23,11 +35,15 @@
 | Snapshot | snapshot.ts | Captura de estado y rollback por cambio/sesión |
 | Session | session.ts | Generación de ID y creación de sesiones |
 | Preflight | preflight.ts | Quality gates, detección de fase, validación de docs |
-| Hooks | hooks.ts | Instalación/gestión de Git hooks (pre-commit, pre-push, commit-msg) |
-| Injector | injector.ts | Generación de reglas para editores agénticos |
-| Compliance | compliance.ts | Reportes con mapeo controles-normas |
+| Hooks | hooks.ts | Instalación/gestión de Git hooks cross-platform |
+| Injector | injector.ts | Generación de reglas para 5 editores + MCP configs |
+| Compliance | compliance.ts | Reportes con mapeo a 5 normas internacionales |
 | Validator | validator.ts | Ejecución de validadores de controles |
 | Controls | catalog/controls.ts | 36 controles en 8 categorías |
+| **Daemon** | **daemon.ts** | **Proceso background: PID file, SIGTERM/taskkill cross-platform** |
+| **API** | **api.ts** | **REST API Express — 10 endpoints, CORS localhost** |
+| **MCP** | **mcp.ts** | **Servidor MCP — 6 tools, stdio + HTTP/SSE** |
+| **Skill** | **skill.ts** | **Generador de skills/tools para 5 editores con deepMerge JSON** |
 | Git | git.ts | Wrapper de simple-git para commits, branches, stash |
 | Platform | platform.ts | Utilidades cross-platform (chmod, paths, signals) |
 | Memory | memory.ts | Gestión de contexto, índices y resúmenes |

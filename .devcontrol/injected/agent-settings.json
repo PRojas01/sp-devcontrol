@@ -17,7 +17,11 @@
       "filesystem",
       "git",
       "sqlite"
-    ]
+    ],
+    "devcontrol": {
+      "type": "sse",
+      "url": "http://localhost:7893/mcp"
+    }
   },
   "spDevControl": {
     "project": "SP-DevControl",

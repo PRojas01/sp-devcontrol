@@ -1,16 +1,23 @@
-# SP-DevControl
+# SP-DevControl v2
 
 Capa local de gobernanza para proyectos de desarrollo asistido por IA.
 
-Valida el proyecto antes del primer prompt, impone diseño primero, monitorea cambios en tiempo real, clasifica riesgo, exige aprobaciones, genera snapshots y garantiza cumplimiento normativo.
+Valida el proyecto antes del primer prompt, impone diseño primero, monitorea cambios en tiempo real, clasifica riesgo, exige aprobaciones, genera snapshots y garantiza cumplimiento normativo (OWASP, RGPD, ISO 27001, CWE, SLSA).
+
+**v2 añade:** daemon de background, REST API en :7891, servidor MCP en :7893 (Claude Code, opencode, Cursor, Windsurf), binarios standalone sin Node.
 
 ## Instalación
 
 ```bash
+# Desde npm
 npm install -g sp-devcontrol
+
+# Binario standalone (sin Node requerido)
+curl -L https://github.com/SolucionesPro/sp-devcontrol/releases/latest/download/devcontrol-linux-x64 -o devcontrol
+chmod +x devcontrol && sudo mv devcontrol /usr/local/bin/
 ```
 
-Requiere Node.js ≥ 20. Compatible con Linux y Windows.
+Compatible Linux x64/ARM64 y Windows x64. Node.js ≥ 18 si usas npm.
 
 ## Inicio rápido
 

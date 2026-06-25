@@ -2,7 +2,12 @@ import http from 'http'
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { resolve, join } from 'path'
 import { homedir } from 'os'
+import { createRequire } from 'module'
 import express, { type Request, type Response, type NextFunction } from 'express'
+
+const require = createRequire(import.meta.url)
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+const PKG_VERSION: string = (require('../package.json') as { version: string }).version
 import {
   getDb,
   listSessions,
@@ -85,7 +90,7 @@ export function createApiServer(port: number): http.Server {
   app.get('/health', (_req: Request, res: Response) => {
     res.json({
       status: 'ok',
-      version: '2.0.0',
+      version: PKG_VERSION,
       uptime: Math.floor((Date.now() - START_TIME) / 1000),
     })
   })

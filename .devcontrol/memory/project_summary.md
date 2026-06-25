@@ -1,60 +1,37 @@
-# SP-DevControl - Resumen del Proyecto
+# SP-DevControl v2 — Resumen del Proyecto
 
-## Estado actual
-- Estado general: MVP tecnico COMPLETADO.
-- Marca oficial: SP-DevControl.
-- App local: SP-DevControl Local.
-- Binario actual: sp-devcontrol.
-- Nombre historico del prototipo: DevSentinel.
+## Estado actual (2026-06-25)
+- Versión: **2.0.0** (production loop activo)
+- Build: ✅ 0 errores TypeScript, 32 módulos
+- Tests: ✅ 19/19 pasando
+- Sesión activa: ds-20260625-001 (auto-aprobación)
 
 ## Propuesta del producto
-- Capa local de control para proyectos desarrollados con editores agenticos.
-- No reemplaza el editor; gobierna entorno, cambios, riesgo, auditoria, snapshots, aprobaciones y contexto.
-- Impone diseño primero: no permite iniciar sesiones de desarrollo sin documentacion de diseño completada.
+Capa local de gobernanza para proyectos con editores agénticos.
+Gobierna entorno, cambios, riesgo, auditoría, snapshots, aprobaciones y contexto.
+Impone diseño primero. Bloquea sesiones sin documentación completa.
 
-## Stack objetivo final
-- Tauri
-- Rust
-- React
-- TypeScript
-- SQLite
+## Novedades v2 vs v1
+| Componente | v1 | v2 |
+|---|---|---|
+| CLI commands | 33 | 37 |
+| Daemon | No | ✅ daemon.ts — PID file, SIGTERM/taskkill |
+| REST API | No | ✅ api.ts Express :7891, 10 endpoints |
+| MCP Server | No | ✅ mcp.ts stdio + HTTP/SSE :7893, 6 tools |
+| Skill generator | No | ✅ skill.ts — 5 editores, deepMerge JSON |
+| Binary scripts | No | ✅ @yao-pkg/pkg — linux/win/arm |
+| Cluster deploy | No | ✅ deploy-cluster.sh — 6 nodos SSH |
+| opencode.json | Básico | ✅ Con MCP + cluster config |
+| .cursor/mcp.json | No | ✅ Generado automáticamente |
+| .windsurf/mcp.json | No | ✅ Generado automáticamente |
+| Node requerido | ≥20 | ≥18 |
+| Auto-gobernanza | No | ✅ Se rige por sí mismo |
 
-## Runtime actual del prototipo
-- Node.js
-- TypeScript
-- Commander
-- Chokidar
-- simple-git
-- JSON local como backend portable en lugar de SQLite real
+## Stack v2
+- Runtime: Node.js ≥ 18 | TypeScript 5.7 ESM strict
+- CLI: Commander.js | Storage: JSON portable (→ SQLite próximo sprint)
+- REST API: Express 4 | MCP: @modelcontextprotocol/sdk 1.13
+- Packaging: @yao-pkg/pkg | Tests: Vitest 3
 
-## Estado de implementacion actual
-- 33 comandos CLI operativos.
-- Preflight y quality gates que bloquean desarrollo sin diseño.
-- Git hooks (pre-commit, pre-push, commit-msg) con enforcement real.
-- Inyeccion de reglas a editores (CLAUDE.md, .cursorrules, copilot-instructions).
-- Reportes de compliance con mapeo a normas (OWASP, RGPD, ISO, SLSA, CWE).
-- 36 controles en catalogo, 14+ activos por defecto con validadores.
-- Sesiones gobernadas con checklist, aprobaciones y snapshots.
-- Monitoreo de cambios con clasificacion de riesgo.
-- Rollback por cambio y por sesion.
-- 19 tests automatizados pasando.
-
-## Capacidades CLI ya disponibles (33 comandos)
-- init, project:status, project:check
-- policy:path, policy:command, policy:protected:list/add/remove
-- policy:command:approved:list, policy:command:approve, policy:command:revoke
-- session:start (con preflight), session:check, session:checklist:update, session:close
-- session:changes:list, session:change:show, session:change:approve, session:change:reject
-- session:approval:list, session:approval:grant, session:approval:revoke
-- snapshot:create, session:snapshots:list, session:rollback
-- watch:start
-- hooks:install, hooks:uninstall, hooks:status
-- inject
-- report:compliance, report:session
-
-## Proximo foco recomendado
-- Optimizacion real de tokens (integracion con APIs de proveedores).
-- Migracion de JSON a SQLite.
-- Comando `launch` para lanzar editores desde SP-DevControl.
-- Daemon local como proceso de background.
-- Desktop app con Tauri + React.
+## Puertos fijos (ver CLUSTER_CONTRACTS.md)
+- API REST: 7891 | MCP HTTP: 7893 | WebSocket: 7892

@@ -58,11 +58,28 @@ import { evaluateTokenBudget, estimateSessionTokens } from './token_guard.js'
 import type { ApprovalRecord, ChangeSet, Session, SessionChecklistItem } from './types.js'
 import { FileWatcher } from './watcher.js'
 
+// Daemon worker mode: when spawned by startDaemon(), start the API server inline
+if (process.argv[2] === '__daemon_worker__') {
+  const apiPort = parseInt(process.env['DEVCONTROL_API_PORT'] ?? '7891', 10)
+  import('./api.js').then(({ startApiServer }) => {
+    startApiServer(apiPort).then(() => {
+      process.title = `devcontrol-daemon :${apiPort}`
+    }).catch((err: unknown) => {
+      process.stderr.write(`Daemon API failed: ${String(err)}\n`)
+      process.exit(1)
+    })
+  })
+  // Keep process alive; API server holds the event loop
+  process.on('SIGTERM', () => {
+    import('./api.js').then(({ stopApiServer }) => stopApiServer()).finally(() => process.exit(0))
+  })
+}
+
 const program = new Command()
 program
   .name('sp-devcontrol')
   .description('SP-DevControl local governance CLI')
-  .version('1.0.0')
+  .version('2.0.0')
   .option('--verbose', 'Show stack traces on error')
 
 function openDb(projectRoot: string) {

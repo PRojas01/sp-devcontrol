@@ -13,7 +13,7 @@ function mcpServerBlock(port: number): Record<string, unknown> {
   return {
     devcontrol: {
       type: 'sse',
-      url: `http://localhost:${port}/sse`,
+      url: `http://localhost:${port}/mcp`,
     },
   }
 }

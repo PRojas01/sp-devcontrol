@@ -48,6 +48,22 @@ if [[ ! -d "${PROJECT_DIR}/dist" ]] || [[ ! -f "${PROJECT_DIR}/dist/cli.js" ]]; 
     exit 1
   fi
 fi
+log_ok "dist/cli.js listo"
+
+# ---------------------------------------------------------------------------
+# 1b. Bundle ESM → CJS con esbuild (@yao-pkg/pkg no soporta ESM nativo)
+# ---------------------------------------------------------------------------
+log_step "Bundle ESM → CJS con esbuild"
+mkdir -p "${PROJECT_DIR}/bundle"
+npx esbuild "${PROJECT_DIR}/dist/cli.js" \
+  --bundle \
+  --platform=node \
+  --target=node18 \
+  --format=cjs \
+  --outfile="${PROJECT_DIR}/bundle/cli-full.cjs" \
+  --define:import.meta.url='"file:///snapshot/cli.cjs"' \
+  --log-level=warning
+log_ok "Bundle: $(du -h "${PROJECT_DIR}/bundle/cli-full.cjs" | cut -f1)"
 log_ok "dist/cli.js presente"
 
 # ---------------------------------------------------------------------------
@@ -72,9 +88,9 @@ log_ok "pkg encontrado: ${PKG_BIN}"
 # 4. Definición de targets
 # ---------------------------------------------------------------------------
 declare -A TARGETS=(
-  ["linux-x64"]="node20-linux-x64|release/devcontrol-linux-x64"
-  ["linux-arm64"]="node20-linux-arm64|release/devcontrol-linux-arm64"
-  ["win-x64"]="node20-win-x64|release/devcontrol-win-x64.exe"
+  ["linux-x64"]="node18-linux-x64|release/devcontrol-linux-x64"
+  ["linux-arm64"]="node18-linux-arm64|release/devcontrol-linux-arm64"
+  ["win-x64"]="node18-win-x64|release/devcontrol-win-x64.exe"
 )
 
 # ---------------------------------------------------------------------------
@@ -92,10 +108,9 @@ for PLATFORM in "${!TARGETS[@]}"; do
 
   log_info "Lanzando build → ${PLATFORM} (${OUTPUT})"
   (
-    "${PKG_BIN}" dist/cli.js \
+    "${PKG_BIN}" bundle/cli-full.cjs \
       --target "${TARGET}" \
       --output "${OUTPUT}" \
-      --compress GZip \
       > "${LOGFILE}" 2>&1
   ) &
   PIDS[$PLATFORM]=$!

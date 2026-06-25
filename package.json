@@ -20,10 +20,11 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build && npm test",
-    "pkg:linux": "pkg dist/cli.js --target node20-linux-x64 --output release/devcontrol-linux-x64 --compress GZip",
-    "pkg:linux-arm": "pkg dist/cli.js --target node20-linux-arm64 --output release/devcontrol-linux-arm64 --compress GZip",
-    "pkg:win": "pkg dist/cli.js --target node20-win-x64 --output release/devcontrol-win-x64.exe --compress GZip",
-    "pkg:all": "npm run build && mkdir -p release && npm run pkg:linux && npm run pkg:linux-arm && npm run pkg:win",
+    "bundle": "esbuild dist/cli.js --bundle --platform=node --target=node18 --format=cjs --outfile=bundle/cli-full.cjs --define:import.meta.url='\"file:///snapshot/cli.cjs\"' --log-level=warning",
+    "pkg:linux": "npm run bundle && npx @yao-pkg/pkg bundle/cli-full.cjs --target node18-linux-x64 --output release/devcontrol-linux-x64",
+    "pkg:linux-arm": "npm run bundle && npx @yao-pkg/pkg bundle/cli-full.cjs --target node18-linux-arm64 --output release/devcontrol-linux-arm64",
+    "pkg:win": "npm run bundle && npx @yao-pkg/pkg bundle/cli-full.cjs --target node18-win-x64 --output release/devcontrol-win-x64.exe",
+    "pkg:all": "npm run build && bash scripts/build-binaries.sh",
     "deploy:cluster": "bash scripts/deploy-cluster.sh"
   },
   "pkg": {
@@ -52,6 +53,7 @@
     "copilot"
   ],
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.13.0",
     "boxen": "^8.0.1",
     "chalk": "^5.4.1",
     "chokidar": "^4.0.3",
@@ -62,8 +64,7 @@
     "express": "^4.21.2",
     "inquirer": "^12.5.2",
     "simple-git": "^3.27.0",
-    "ws": "^8.18.2",
-    "@modelcontextprotocol/sdk": "^1.13.0"
+    "ws": "^8.18.2"
   },
   "devDependencies": {
     "@types/diff": "^7.0.0",
@@ -71,6 +72,7 @@
     "@types/node": "^22.0.0",
     "@types/ws": "^8.5.14",
     "@yao-pkg/pkg": "^5.16.1",
+    "esbuild": "^0.28.1",
     "typescript": "^5.7.3",
     "vitest": "^3.2.3"
   },

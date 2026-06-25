@@ -4,6 +4,7 @@ import {
   readFileSync,
   writeFileSync,
   openSync,
+  closeSync,
   unlinkSync,
 } from 'fs'
 import { join } from 'path'
@@ -16,8 +17,8 @@ const PID_PATH = join(DEVCONTROL_HOME, 'daemon.pid')
 const LOG_PATH = join(DEVCONTROL_HOME, 'daemon.log')
 const STATE_PATH = join(DEVCONTROL_HOME, 'daemon-state.json')
 
-const DEFAULT_API_PORT = 7700
-const DEFAULT_WS_PORT = 7701
+const DEFAULT_API_PORT = 7891
+const DEFAULT_WS_PORT = 7892
 
 export interface DaemonStatus {
   running: boolean
@@ -136,6 +137,7 @@ export async function startDaemon(
 
   const pid = child.pid
   if (pid === undefined) {
+    try { closeSync(logFd) } catch { /* best-effort */ }
     throw new Error('Failed to obtain PID from spawned daemon process')
   }
 
