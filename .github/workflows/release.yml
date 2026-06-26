@@ -33,25 +33,35 @@ jobs:
         run: npm run build
 
       - name: Build binaries
-        run: npm run pkg:all
-
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: binaries
-          path: |
-            release/devcontrol-linux-x64
-            release/devcontrol-linux-arm64
-            release/devcontrol-win-x64.exe
-            release/checksums.sha256
-            release/RELEASE_NOTES.md
+        run: |
+          mkdir -p release
+          npm run pkg:linux
+          npm run pkg:linux-arm
+          npm run pkg:win
+          # Generate checksums
+          cd release
+          sha256sum devcontrol-linux-x64 devcontrol-linux-arm64 devcontrol-win-x64.exe > checksums.sha256
+          cd ..
 
       - name: Create GitHub Release
-        id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          name: Release ${{ github.ref_name }}
-          body_path: release/RELEASE_NOTES.md
+          name: SP-DevControl ${{ github.ref_name }}
+          body: |
+            ## SP-DevControl ${{ github.ref_name }}
+
+            Local governance layer for AI-assisted development.
+
+            ### Install
+
+            ```bash
+            npm install -g sp-devcontrol
+            ```
+
+            Or download a standalone binary below (no Node.js required).
+
+            ### What's new
+            See [CHANGELOG.md](https://github.com/PRojas01/sp-devcontrol/blob/master/CHANGELOG.md)
           draft: false
           prerelease: false
           files: |
@@ -61,7 +71,7 @@ jobs:
             release/checksums.sha256
 
       - name: Publish to npm
-        if: ${{ secrets.NPM_TOKEN != '' }}
+        continue-on-error: true
         run: npm publish --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
