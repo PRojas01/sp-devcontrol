@@ -503,4 +503,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing guidelines
 
 MIT © 2026 Pedro Rojas — SolucionesPro
 
-*SP-DevControl v2.0.0 — Built for teams that want humans in the loop.*
+*SP-DevControl v2.1.0 — Built for teams that want humans in the loop.*
