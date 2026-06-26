@@ -47,6 +47,7 @@ export interface PolicyCommandResult {
 export interface PolicyFile {
   protectedPaths: string[]
   blockedCommands: string[]
+  reviewCommands: string[]
   approvedCommands: string[]
   levels?: Record<string, string[]>
 }
@@ -54,12 +55,13 @@ export interface PolicyFile {
 export function loadPolicy(projectRoot: string): PolicyFile {
   const path = resolve(projectRoot, CONTROL_DIR, 'policy.json')
   if (!existsSync(path)) {
-    return { protectedPaths: [], blockedCommands: [], approvedCommands: [] }
+    return { protectedPaths: [], blockedCommands: [], reviewCommands: [], approvedCommands: [] }
   }
   const parsed = JSON.parse(readFileSync(path, 'utf-8')) as Partial<PolicyFile>
   return {
     protectedPaths: parsed.protectedPaths ?? [],
     blockedCommands: parsed.blockedCommands ?? [],
+    reviewCommands: parsed.reviewCommands ?? [],
     approvedCommands: parsed.approvedCommands ?? [],
     levels: parsed.levels ?? {},
   }
@@ -106,6 +108,26 @@ export function approveCommand(projectRoot: string, command: string): PolicyFile
 export function revokeCommand(projectRoot: string, command: string): PolicyFile {
   const policy = loadPolicy(projectRoot)
   policy.approvedCommands = policy.approvedCommands.filter(entry => entry !== command)
+  savePolicy(projectRoot, policy)
+  return policy
+}
+
+export function listReviewCommands(projectRoot: string): string[] {
+  return loadPolicy(projectRoot).reviewCommands
+}
+
+export function addReviewCommand(projectRoot: string, command: string): PolicyFile {
+  const policy = loadPolicy(projectRoot)
+  if (!policy.reviewCommands.includes(command)) {
+    policy.reviewCommands.push(command)
+    savePolicy(projectRoot, policy)
+  }
+  return policy
+}
+
+export function removeReviewCommand(projectRoot: string, command: string): PolicyFile {
+  const policy = loadPolicy(projectRoot)
+  policy.reviewCommands = policy.reviewCommands.filter(entry => entry !== command)
   savePolicy(projectRoot, policy)
   return policy
 }
@@ -183,6 +205,15 @@ export function evaluateCommandRisk(projectRoot: string, command: string, approv
       command,
       decision: 'BLOCK',
       reason: `Command matches blocked pattern: ${matched}`,
+    }
+  }
+
+  const reviewMatch = policy.reviewCommands.find(entry => commandMatches(command, entry))
+  if (reviewMatch) {
+    return {
+      command,
+      decision: 'REVIEW',
+      reason: `Command matches review pattern: ${reviewMatch}`,
     }
   }
 

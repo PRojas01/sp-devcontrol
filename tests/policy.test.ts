@@ -21,11 +21,14 @@ import {
 import { initializeControlledProject } from '../src/project_init.js'
 import {
   addProtectedPath,
+  addReviewCommand,
   approveCommand,
   evaluateCommandRisk,
   evaluatePathRisk,
+  listReviewCommands,
   loadPolicy,
   removeProtectedPath,
+  removeReviewCommand,
   revokeCommand,
 } from '../src/policy.js'
 
@@ -86,6 +89,53 @@ describe('policy engine', () => {
     expect(evaluateCommandRisk(dir, 'npm install axios').decision).toBe('ALLOW')
     revokeCommand(dir, 'npm install')
     expect(evaluateCommandRisk(dir, 'npm install axios').decision).toBe('REVIEW')
+    rmSync(dir, { recursive: true, force: true })
+  })
+})
+
+describe('reviewCommands', () => {
+  it('returns REVIEW for commands matching reviewCommands list', () => {
+    const dir = tempProject()
+    initializeControlledProject(dir, { project: 'test-project' })
+    addReviewCommand(dir, 'git push')
+    addReviewCommand(dir, 'npm publish')
+    const push = evaluateCommandRisk(dir, 'git push origin master')
+    expect(push.decision).toBe('REVIEW')
+    expect(push.reason).toContain('review pattern')
+    const publish = evaluateCommandRisk(dir, 'npm publish --access public')
+    expect(publish.decision).toBe('REVIEW')
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('reviewCommands are overridden by approvedCommands (ALLOW wins)', () => {
+    const dir = tempProject()
+    initializeControlledProject(dir, { project: 'test-project' })
+    addReviewCommand(dir, 'git push')
+    approveCommand(dir, 'git push')
+    const result = evaluateCommandRisk(dir, 'git push origin master')
+    expect(result.decision).toBe('ALLOW')
+    expect(result.approvalSource).toBe('global')
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('blockedCommands take priority over reviewCommands', () => {
+    const dir = tempProject()
+    initializeControlledProject(dir, { project: 'test-project' })
+    addReviewCommand(dir, 'git push --force')
+    const result = evaluateCommandRisk(dir, 'git push --force')
+    expect(result.decision).toBe('BLOCK')
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('can list and remove review commands', () => {
+    const dir = tempProject()
+    initializeControlledProject(dir, { project: 'test-project' })
+    addReviewCommand(dir, 'vsce publish')
+    addReviewCommand(dir, 'npm publish')
+    expect(listReviewCommands(dir)).toContain('vsce publish')
+    removeReviewCommand(dir, 'vsce publish')
+    expect(listReviewCommands(dir)).not.toContain('vsce publish')
+    expect(listReviewCommands(dir)).toContain('npm publish')
     rmSync(dir, { recursive: true, force: true })
   })
 })

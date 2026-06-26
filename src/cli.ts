@@ -20,12 +20,15 @@ import { processChangeBurst, renderBurstSummary } from './monitor.js'
 import { DB_PATH, MEMORY_DIR } from './paths.js'
 import {
   addProtectedPath,
+  addReviewCommand,
   approveCommand,
   evaluateCommandRisk,
   evaluatePathRisk,
   listApprovedCommands,
   listProtectedPaths,
+  listReviewCommands,
   removeProtectedPath,
+  removeReviewCommand,
   revokeCommand,
 } from './policy.js'
 import {
@@ -244,6 +247,29 @@ program.command('policy:command:approved:list')
     console.log(JSON.stringify(result, null, 2))
   })
 
+program.command('policy:command:review:list')
+  .description('List commands that require human review before execution')
+  .action(() => {
+    const result = listReviewCommands(process.cwd())
+    console.log(JSON.stringify(result, null, 2))
+  })
+
+program.command('policy:command:review:add')
+  .description('Add a command pattern that requires human review (not blocked, not auto-approved)')
+  .requiredOption('--command <command>')
+  .action((options) => {
+    const result = addReviewCommand(process.cwd(), options.command)
+    console.log(JSON.stringify(result, null, 2))
+  })
+
+program.command('policy:command:review:remove')
+  .description('Remove a command from the review list')
+  .requiredOption('--command <command>')
+  .action((options) => {
+    const result = removeReviewCommand(process.cwd(), options.command)
+    console.log(JSON.stringify(result, null, 2))
+  })
+
 program.command('policy:command:approve')
   .description('Approve one command pattern explicitly')
   .requiredOption('--command <command>')
@@ -407,6 +433,7 @@ program.command('session:change:approve')
   .description('Approve one detected change via interactive TUI flow, create snapshot and optionally commit it')
   .requiredOption('--change-id <id>')
   .option('--message <text>', 'decision message', 'approved from CLI')
+  .option('--yes', 'Skip interactive TUI and approve immediately (non-interactive / CI mode)', false)
   .action(async (options) => {
     const projectRoot = process.cwd()
     const config = loadConfig(projectRoot)
@@ -418,7 +445,9 @@ program.command('session:change:approve')
 
     const analysis = analyzeChanges(change.files, config, projectRoot)
     const validation = validateChangeset(change.files, config)
-    const decision = await runApprovalFlow(change, analysis, validation, config)
+    const decision = options.yes
+      ? { action: 'approve' as const, message: options.message }
+      : await runApprovalFlow(change, analysis, validation, config)
 
     if (decision.action === 'reject') {
       createSnapshotFromCurrentState(
@@ -989,9 +1018,15 @@ program.command('agent:run')
   .requiredOption('--agent <name>', 'agent name (claude, opencode, codex, gemini)')
   .requiredOption('--prompt <text>', 'prompt to send to the agent')
   .option('--output <path>', 'save sandbox result JSON to file')
+  .option('--skip-config-check', 'Skip editor config preflight validation', false)
   .action(async (options) => {
     const projectRoot = process.cwd()
     const config = loadConfig(projectRoot)
+
+    if (!options.skipConfigCheck) {
+      validateEditorConfig(projectRoot, options.agent)
+    }
+
     const result = await runInSandbox(options.agent, options.prompt, projectRoot, config)
     const output = JSON.stringify(result, null, 2)
     if (options.output) {
@@ -1001,6 +1036,44 @@ program.command('agent:run')
       console.log(output)
     }
   })
+
+function validateEditorConfig(projectRoot: string, agent: string): void {
+  const configPaths: Record<string, string> = {
+    opencode: join(projectRoot, 'opencode.json'),
+    claude: join(projectRoot, '.claude', 'settings.json'),
+    codex: join(projectRoot, 'codex.json'),
+  }
+  const configPath = configPaths[agent]
+  if (!configPath || !existsSync(configPath)) return
+
+  try {
+    const raw = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>
+
+    if (agent === 'opencode') {
+      const issues: string[] = []
+      if ('mcpServers' in raw) {
+        issues.push('Use "mcp" instead of "mcpServers" (opencode v1+ schema)')
+      }
+      if (raw.mcp && typeof raw.mcp === 'object') {
+        for (const [key, srv] of Object.entries(raw.mcp as Record<string, unknown>)) {
+          if (typeof srv === 'object' && srv !== null) {
+            const s = srv as Record<string, unknown>
+            if (s.type === 'sse') issues.push(`mcp.${key}: use type "remote" not "sse"`)
+            if (s.type === 'remote' && !('enabled' in s)) issues.push(`mcp.${key}: missing required field "enabled"`)
+          }
+        }
+      }
+      if (raw.model !== undefined && typeof raw.model !== 'string') {
+        issues.push('"model" must be a string (e.g. "opencode/deepseek-v4-flash-free"), not an object')
+      }
+      if (issues.length > 0) {
+        console.warn(`⚠ opencode.json schema issues detected (run devcontrol inject to regenerate):\n${issues.map(i => `  • ${i}`).join('\n')}`)
+      }
+    }
+  } catch {
+    console.warn(`⚠ Could not parse ${configPath} — skipping config preflight`)
+  }
+}
 
 program.parseAsync(process.argv).catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error)
