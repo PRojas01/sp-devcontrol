@@ -1,10 +1,10 @@
 # SP-DevControl
 
 [![npm version](https://img.shields.io/npm/v/sp-devcontrol)](https://www.npmjs.com/package/sp-devcontrol)
-[![CI](https://github.com/SolucionesPro/sp-devcontrol/actions/workflows/ci.yml/badge.svg)](https://github.com/SolucionesPro/sp-devcontrol/actions/workflows/ci.yml)
+[![CI](https://github.com/PRojas01/sp-devcontrol/actions/workflows/ci.yml/badge.svg)](https://github.com/PRojas01/sp-devcontrol/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
-[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-blue)](https://github.com/SolucionesPro/sp-devcontrol/releases)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-blue)](https://github.com/PRojas01/sp-devcontrol/releases)
 
 **Local governance layer for AI-assisted development.**  
 Protect your project from uncontrolled AI agent changes with policy enforcement, approval gates, compliance reports, and universal MCP integration.
@@ -60,7 +60,7 @@ sp-devcontrol session:close --session <id>
 ### Standalone binary (no Node.js required)
 
 ```bash
-curl -L https://github.com/SolucionesPro/sp-devcontrol/releases/latest/download/devcontrol-linux-x64 -o devcontrol
+curl -L https://github.com/PRojas01/sp-devcontrol/releases/latest/download/devcontrol-linux-x64 -o devcontrol
 chmod +x devcontrol && sudo mv devcontrol /usr/local/bin/
 ```
 

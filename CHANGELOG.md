@@ -43,5 +43,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Project initialization and configuration
 - Git integration via simple-git
 
-[2.0.0]: https://github.com/SolucionesPro/sp-devcontrol/releases/tag/v2.0.0
-[1.0.0]: https://github.com/SolucionesPro/sp-devcontrol/releases/tag/v1.0.0
+[2.0.0]: https://github.com/PRojas01/sp-devcontrol/releases/tag/v2.0.0
+[1.0.0]: https://github.com/PRojas01/sp-devcontrol/releases/tag/v1.0.0
