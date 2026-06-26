@@ -119,16 +119,29 @@ describe('injector', () => {
     expect(result.windsurfrules).toContain('authorized scope: src, tests')
   })
 
-  it('generates opencode.json with model, provider endpoint, and MCP server config', () => {
+  it('generates opencode.json with only MCP config when no inference is configured', () => {
     const result = buildInjection(sampleConfig())
     const parsed = JSON.parse(result.opencodeJson)
-    // opencode schema: model is a string ID, not an object
-    expect(typeof parsed.model).toBe('string')
-    expect(parsed.model).toBe('opencode/deepseek-v4-flash-free')
-    // provider uses redia-bridge with openai-compatible options
-    expect(parsed.provider['redia-bridge'].options.apiKey).toBe('local-cluster-key')
-    expect(parsed.provider['redia-bridge'].options.baseURL).toBe('http://192.168.18.100:8091/v1')
+    // Without inference config: no hardcoded provider or model — just the MCP integration
+    expect(parsed.provider).toBeUndefined()
+    expect(parsed.model).toBeUndefined()
     // opencode uses "mcp" (type: "remote", enabled) not "mcpServers"
+    expect(parsed.mcp.devcontrol).toEqual({ type: 'remote', url: 'http://localhost:7893/mcp', enabled: true })
+  })
+
+  it('generates opencode.json with custom provider when inference is configured', () => {
+    const config = sampleConfig()
+    config.inference = {
+      providerName: 'my-ollama',
+      baseURL: 'http://localhost:11434/v1',
+      apiKey: 'ollama',
+      model: 'my-ollama/qwen2.5-coder:7b',
+    }
+    const result = buildInjection(config)
+    const parsed = JSON.parse(result.opencodeJson)
+    expect(parsed.model).toBe('my-ollama/qwen2.5-coder:7b')
+    expect(parsed.provider['my-ollama'].options.baseURL).toBe('http://localhost:11434/v1')
+    expect(parsed.provider['my-ollama'].options.apiKey).toBe('ollama')
     expect(parsed.mcp.devcontrol).toEqual({ type: 'remote', url: 'http://localhost:7893/mcp', enabled: true })
   })
 

@@ -126,30 +126,41 @@ function buildAgentSettings(config: DevSentinelConfig): Record<string, unknown> 
   }
 }
 
-function buildOpencodeJson(_config: DevSentinelConfig): string {
+function buildOpencodeJson(config: DevSentinelConfig): string {
+  const inf = config.inference
+  const mcp = {
+    devcontrol: {
+      type: 'remote',
+      url: 'http://localhost:7893/mcp',
+      enabled: true,
+    },
+  }
+
+  // With user-configured inference endpoint
+  if (inf?.baseURL) {
+    const providerName = inf.providerName ?? 'local-ai'
+    const cfg = {
+      $schema: 'https://opencode.ai/config.json',
+      model: inf.model ?? `${providerName}/default`,
+      provider: {
+        [providerName]: {
+          npm: inf.npm ?? '@ai-sdk/openai-compatible',
+          options: {
+            apiKey: inf.apiKey ?? 'local',
+            baseURL: inf.baseURL,
+          },
+        },
+      },
+      mcp,
+    }
+    return JSON.stringify(cfg, null, 2)
+  }
+
+  // Generic: MCP integration only — user configures their own AI provider
   const cfg = {
     $schema: 'https://opencode.ai/config.json',
-    model: 'opencode/deepseek-v4-flash-free',
-    provider: {
-      'redia-bridge': {
-        name: 'RedIA IDE Bridge',
-        npm: '@ai-sdk/openai-compatible',
-        options: {
-          apiKey: 'local-cluster-key',
-          baseURL: 'http://192.168.18.100:8091/v1',
-        },
-        models: {
-          'redia-generate': { _launch: false, name: 'redia-generate' },
-        },
-      },
-    },
-    mcp: {
-      devcontrol: {
-        type: 'remote',
-        url: 'http://localhost:7893/mcp',
-        enabled: true,
-      },
-    },
+    // model: "provider-name/model-id"  — set your preferred model here
+    mcp,
   }
   return JSON.stringify(cfg, null, 2)
 }

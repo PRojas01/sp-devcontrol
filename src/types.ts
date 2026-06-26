@@ -68,6 +68,15 @@ export interface DevSentinelConfig {
   }
   structure: string
   storageBackend?: 'json' | 'sqlite'  // default 'json'
+  inference?: {
+    // Optional: configure a custom OpenAI-compatible endpoint for opencode/editors
+    // If not set, inject generates a minimal opencode.json with only the MCP integration
+    providerName?: string       // e.g. "my-ollama", "my-lm-studio"
+    baseURL?: string            // e.g. "http://localhost:11434/v1"
+    apiKey?: string             // e.g. "ollama" or an env var placeholder like "${MY_API_KEY}"
+    model?: string              // e.g. "qwen2.5-coder:7b"
+    npm?: string                // npm package for @ai-sdk adapter, default "@ai-sdk/openai-compatible"
+  }
 }
 
 export interface FileChange {

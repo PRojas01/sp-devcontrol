@@ -15,3 +15,8 @@ BACKLOG_MVP_SP_DEVCONTROL.md
 .devcontrol/memory/
 .devcontrol/api-token
 .devcontrol/token
+# Local editor config — contains user-specific endpoints, do not commit
+opencode.json
+.mcp.json
+.cursor/mcp.json
+.windsurf/mcp.json
