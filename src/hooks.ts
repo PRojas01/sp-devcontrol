@@ -94,6 +94,25 @@ if echo "$ISSUES" | grep -q "BLOCKED"; then
   echo ""
   exit 1
 fi
+
+GATES_FILE=".devcontrol/gates.json"
+if [ -f "$GATES_FILE" ]; then
+  REVIEW_STATUS=$(node -e "
+    try {
+      const g = JSON.parse(require('fs').readFileSync('$GATES_FILE', 'utf-8'));
+      const review = g.gates && g.gates.review;
+      if (review && review.status !== 'open') {
+        console.log('NOT_OPEN');
+      }
+    } catch(e) { /* ignore */ }
+  " 2>/dev/null)
+  if [ "$REVIEW_STATUS" = "NOT_OPEN" ]; then
+    echo ""
+    echo "⚠  SP-DevControl WARNING: review gate not approved."
+    echo "   Run: sp-devcontrol gate:approve --phase review --by \"Your Name\""
+    echo ""
+  fi
+fi
 `
 
 const COMMIT_MSG_HOOK = `#!/bin/sh

@@ -73,6 +73,7 @@ import { runInSandbox } from './wrapper.js'
 import inquirer from 'inquirer'
 import { validateChangeset } from './validator.js'
 import { FileWatcher } from './watcher.js'
+import { approveGate, getGateSummaryTable, initGates, isGateOpen, loadGates, rejectGate, resetGate, type GatePhase } from './gates.js'
 
 // Daemon worker mode: when spawned by startDaemon(), start the API server inline
 if (process.argv[2] === '__daemon_worker__') {
@@ -783,7 +784,7 @@ program.command('inject')
   .action(() => {
     const projectRoot = process.cwd()
     const config = loadConfig(projectRoot)
-    const injection = buildInjection(config)
+    const injection = buildInjection(config, projectRoot)
     const written = writeInjectionFiles(injection, projectRoot, config)
     console.log('Agent rule files generated:')
     for (const file of written) console.log(`  ✓ ${file}`)
@@ -1074,6 +1075,78 @@ function validateEditorConfig(projectRoot: string, agent: string): void {
     console.warn(`⚠ Could not parse ${configPath} — skipping config preflight`)
   }
 }
+
+// ─── Human Authorization Gates ───────────────────────────────────────────────
+
+// gate:status
+program.command('gate:status')
+  .description('Show authorization gate states for the current project')
+  .action(() => {
+    const root = process.cwd()
+    const data = loadGates(root)
+    console.log(`\nProject: ${data.projectName}  |  Updated: ${data.updatedAt}\n`)
+    console.log(getGateSummaryTable(data))
+    console.log('\nTo approve: sp-devcontrol gate:approve --phase <phase> --by "Your Name"')
+    console.log('To block:   sp-devcontrol gate:reject  --phase <phase> --reason "reason"')
+  })
+
+// gate:approve
+program.command('gate:approve')
+  .description('Approve a project phase gate (human sign-off)')
+  .requiredOption('--phase <phase>', 'Phase to approve: design|development|review|publish')
+  .requiredOption('--by <name>', 'Name of the person approving')
+  .option('--notes <text>', 'Optional notes')
+  .action((opts) => {
+    const root = process.cwd()
+    const data = approveGate(root, opts.phase as GatePhase, opts.by, opts.notes)
+    console.log(`✅ Gate approved: ${opts.phase} (by ${opts.by})`)
+    console.log(getGateSummaryTable(data))
+  })
+
+// gate:reject
+program.command('gate:reject')
+  .description('Block a project phase gate')
+  .requiredOption('--phase <phase>', 'Phase to block: design|development|review|publish')
+  .requiredOption('--reason <reason>', 'Reason for rejection')
+  .action((opts) => {
+    const root = process.cwd()
+    const data = rejectGate(root, opts.phase as GatePhase, opts.reason)
+    console.log(`⛔ Gate blocked: ${opts.phase}`)
+    console.log(getGateSummaryTable(data))
+  })
+
+// gate:reset
+program.command('gate:reset')
+  .description('Reset a gate to pending state')
+  .requiredOption('--phase <phase>', 'Phase to reset: design|development|review|publish')
+  .action((opts) => {
+    const root = process.cwd()
+    const data = resetGate(root, opts.phase as GatePhase)
+    console.log(`🟡 Gate reset to pending: ${opts.phase}`)
+    console.log(getGateSummaryTable(data))
+  })
+
+// gate:request
+program.command('gate:request')
+  .description('Request human approval for a phase gate (shows what action is needed)')
+  .requiredOption('--phase <phase>', 'Phase needing approval: design|development|review|publish')
+  .action((opts) => {
+    const root = process.cwd()
+    const data = loadGates(root)
+    const gate = data.gates[opts.phase as GatePhase]
+    console.log('\n╔══════════════════════════════════════════════════════════╗')
+    console.log('║  HUMAN APPROVAL REQUIRED                                ║')
+    console.log(`║  Phase: ${opts.phase.padEnd(49)}║`)
+    console.log('╚══════════════════════════════════════════════════════════╝\n')
+    console.log(`Project:  ${data.projectName}`)
+    console.log(`Phase:    ${opts.phase}`)
+    console.log(`Status:   ${gate.status}`)
+    if (gate.reason) console.log(`Reason:   ${gate.reason}`)
+    console.log('\nTo approve:')
+    console.log(`  sp-devcontrol gate:approve --phase ${opts.phase} --by "Your Name"`)
+    console.log('\nTo reject:')
+    console.log(`  sp-devcontrol gate:reject --phase ${opts.phase} --reason "your reason"`)
+  })
 
 program.parseAsync(process.argv).catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error)

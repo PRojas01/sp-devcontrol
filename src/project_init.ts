@@ -11,6 +11,7 @@ import { join, resolve } from 'path'
 import type { DevSentinelConfig } from './types.js'
 import { ensureConfigDir, hasConfig, saveConfig, DEFAULT_CONFIG } from './config.js'
 import { CONTROL_DIR, MEMORY_DIR } from './paths.js'
+import { initGates } from './gates.js'
 
 const DOC_TEMPLATES: Array<[string, string]> = [
   ['00-project-brief.md', '# Project Brief\n\n- nombre: pendiente\n- objetivo: pendiente\n'],
@@ -68,16 +69,19 @@ export function initializeControlledProject(projectRoot: string, partial?: Parti
   if (!existsSync(memoryDir)) mkdirSync(memoryDir, { recursive: true })
 
   let configCreated = false
+  const projectName = partial?.project ?? projectRoot.split('/').pop() ?? 'project'
   if (!hasConfig(projectRoot)) {
     const config: DevSentinelConfig = {
       ...DEFAULT_CONFIG,
       ...partial,
-      project: partial?.project ?? projectRoot.split('/').pop() ?? 'project',
+      project: projectName,
       createdAt: new Date().toISOString(),
     }
     saveConfig(config, projectRoot)
     configCreated = true
   }
+
+  initGates(projectRoot, projectName)
 
   const createdDocs: string[] = []
   for (const [name, content] of DOC_TEMPLATES) {
