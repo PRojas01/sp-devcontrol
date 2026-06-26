@@ -128,20 +128,26 @@ function buildAgentSettings(config: DevSentinelConfig): Record<string, unknown> 
 
 function buildOpencodeJson(_config: DevSentinelConfig): string {
   const cfg = {
-    model: {
-      modelID: 'redia-generate',
-      providerID: 'openai',
-    },
+    $schema: 'https://opencode.ai/config.json',
+    model: 'opencode/deepseek-v4-flash-free',
     provider: {
-      openai: {
-        apiKey: 'local-cluster-key',
-        baseURL: 'http://192.168.18.100:8091/v1',
+      'redia-bridge': {
+        name: 'RedIA IDE Bridge',
+        npm: '@ai-sdk/openai-compatible',
+        options: {
+          apiKey: 'local-cluster-key',
+          baseURL: 'http://192.168.18.100:8091/v1',
+        },
+        models: {
+          'redia-generate': { _launch: false, name: 'redia-generate' },
+        },
       },
     },
-    mcpServers: {
+    mcp: {
       devcontrol: {
-        type: 'sse',
+        type: 'remote',
         url: 'http://localhost:7893/mcp',
+        enabled: true,
       },
     },
   }

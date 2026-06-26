@@ -1,18 +1,30 @@
 {
   "model": {
-    "modelID": "redia-generate",
-    "providerID": "openai"
+    "modelID": "qwen2.5-coder:7b",
+    "providerID": "ollama"
   },
   "provider": {
-    "openai": {
-      "apiKey": "local-cluster-key",
-      "baseURL": "http://192.168.18.100:8091/v1"
+    "ollama": {
+      "apiKey": "ollama",
+      "baseURL": "http://192.168.18.100:11434/v1"
+    },
+    "moonshot": {
+      "apiKey": "${MOONSHOT_API_KEY}",
+      "baseURL": "https://api.moonshot.cn/v1"
+    },
+    "minimax": {
+      "apiKey": "${MINIMAX_API_KEY}",
+      "baseURL": "https://api.minimax.chat/v1"
     }
   },
   "mcpServers": {
     "devcontrol": {
       "type": "sse",
       "url": "http://localhost:7893/mcp"
+    },
+    "redia-agents": {
+      "type": "sse",
+      "url": "http://localhost:7895/mcp"
     }
   }
 }

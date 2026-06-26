@@ -122,10 +122,14 @@ describe('injector', () => {
   it('generates opencode.json with model, provider endpoint, and MCP server config', () => {
     const result = buildInjection(sampleConfig())
     const parsed = JSON.parse(result.opencodeJson)
-    expect(parsed.model).toEqual({ modelID: 'redia-generate', providerID: 'openai' })
-    expect(parsed.provider.openai.apiKey).toBe('local-cluster-key')
-    expect(parsed.provider.openai.baseURL).toBe('http://192.168.18.100:8091/v1')
-    expect(parsed.mcpServers.devcontrol).toEqual({ type: 'sse', url: 'http://localhost:7893/mcp' })
+    // opencode schema: model is a string ID, not an object
+    expect(typeof parsed.model).toBe('string')
+    expect(parsed.model).toBe('opencode/deepseek-v4-flash-free')
+    // provider uses redia-bridge with openai-compatible options
+    expect(parsed.provider['redia-bridge'].options.apiKey).toBe('local-cluster-key')
+    expect(parsed.provider['redia-bridge'].options.baseURL).toBe('http://192.168.18.100:8091/v1')
+    // opencode uses "mcp" (type: "remote", enabled) not "mcpServers"
+    expect(parsed.mcp.devcontrol).toEqual({ type: 'remote', url: 'http://localhost:7893/mcp', enabled: true })
   })
 
   it('generates MCP config for Cursor with devcontrol SSE server', () => {
