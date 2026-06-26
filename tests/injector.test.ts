@@ -38,7 +38,7 @@ vi.mock('../src/catalog/controls.js', () => ({
 function sampleConfig(): DevSentinelConfig {
   return {
     project: 'test-project',
-    version: '2.0.0',
+    version: '2.1.0',
     createdAt: '2026-01-01T00:00:00.000Z',
     stack: ['node', 'typescript'],
     agents: { allowed: ['claude', 'cursor'], default: 'claude' },
@@ -97,7 +97,7 @@ describe('injector', () => {
     expect(result.claudeMd).toContain('[Architecture] SOLID')
     expect(result.claudeMd).toContain('NEVER write API keys in code.')
     expect(result.claudeMd).toContain('Single Responsibility principle.')
-    expect(result.claudeMd).toContain('SP-DevControl 2.0.0')
+    expect(result.claudeMd).toContain('SP-DevControl 2.1.0')
   })
 
   it('generates .cursorrules with authorized scope and core rules', () => {

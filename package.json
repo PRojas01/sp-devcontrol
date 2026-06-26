@@ -1,7 +1,7 @@
 {
   "name": "sp-devcontrol",
-  "version": "2.0.0",
-  "description": "Local governance layer for AI-assisted software projects — cross-platform with daemon, REST API and MCP server",
+  "version": "2.1.0",
+  "description": "Local governance layer for AI-assisted development — human authorization gates, policy enforcement, change approval, rollback, compliance and universal MCP integration",
   "type": "module",
   "bin": {
     "sp-devcontrol": "./dist/cli.js",

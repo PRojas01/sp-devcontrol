@@ -5,6 +5,37 @@ All notable changes to SP-DevControl are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.1.0] — 2026-06-26
+
+### Added
+
+- **Human Authorization Gates** — four-phase lifecycle control (design → development → review → publish). Each gate requires explicit human sign-off before agents can proceed
+- `gate:status` — show live gate states for the current project
+- `gate:approve --phase --by [--notes]` — approve a phase gate with author and optional notes
+- `gate:reject --phase --reason` — block a phase with a reason
+- `gate:reset --phase` — return a gate to pending
+- `gate:request --phase` — print the exact command a reviewer needs to run
+- Gates table embedded in `CLAUDE.md` via `inject` — all editors see live gate status
+- `initGates()` called automatically on `init` — all projects start with 4 pending gates
+- Pre-push hook warns when review gate is not approved
+- `reviewCommands` policy tier — REVIEW decisions sit between ALLOW and BLOCK
+- `--yes` flag for `session:change:approve` — non-interactive CI mode
+- `validateEditorConfig()` preflight in `agent:run`
+- `DevSentinelConfig.inference` — optional per-project AI endpoint configuration
+- Rollback edge-case tests: new-file deletion, path traversal block, empty session, partial multi-file
+- 8 gate tests (93 total passing, 16 test files)
+
+### Changed
+
+- `inject` now embeds live gate state table at top of `CLAUDE.md`
+- `buildOpencodeJson()` is now generic — uses `config.inference` when set, otherwise generates minimal MCP-only config (no hardcoded provider URLs)
+- README: complete rewrite with gates, all commands, editor integration, rollback docs, compliance reference
+
+### Fixed
+
+- `sanitizeProcessData()` changed from `any` to `unknown` with required-field guard
+- Pre-push hook: now warns (not blocks) on review gate pending to avoid false blockers during initial setup
+
 ## [2.0.0] — 2026-06-25
 
 ### Added
