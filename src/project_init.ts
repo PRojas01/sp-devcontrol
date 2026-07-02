@@ -9,23 +9,15 @@
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { join, resolve } from 'path'
 import type { DevSentinelConfig } from './types.js'
-import { ensureConfigDir, hasConfig, saveConfig, DEFAULT_CONFIG } from './config.js'
+import { ensureConfigDir, hasConfig, saveConfig, loadConfig, DEFAULT_CONFIG } from './config.js'
 import { CONTROL_DIR, MEMORY_DIR } from './paths.js'
 import { initGates } from './gates.js'
-
-const DOC_TEMPLATES: Array<[string, string]> = [
-  ['00-project-brief.md', '# Project Brief\n\n- nombre: pendiente\n- objetivo: pendiente\n'],
-  ['01-requirements.md', '# Requirements\n\n- funcionales: pendiente\n- no funcionales: pendiente\n'],
-  ['02-architecture.md', '# Architecture\n\n- stack: pendiente\n- modulos: pendiente\n'],
-  ['06-security-rules.md', '# Security Rules\n\n- no modificar auth sin aprobacion\n- no tocar secretos\n'],
-  ['07-agent-rules.md', '# Agent Rules\n\n- presentar plan si se tocan mas de 3 archivos\n- resumir cambios al finalizar\n'],
-  ['08-change-log.md', '# Change Log\n'],
-  ['09-risk-register.md', '# Risk Register\n\n- pendiente\n'],
-]
+import { generateProjectDocs, getDocsCatalog } from './docs-generator.js'
 
 export const DEFAULT_PROTECTED_PATHS = [
   '.env',
   '.env.local',
+  '.env.*',
   'package.json',
   'package-lock.json',
   'pnpm-lock.yaml',
@@ -33,11 +25,22 @@ export const DEFAULT_PROTECTED_PATHS = [
   'Dockerfile',
   'docker-compose.yml',
   '.github/workflows/**',
+  '.devcontrol/**',
+  '.devcontrol/',
+  'CLAUDE.md',
+  '.cursorrules',
+  '.windsurfrules',
+  'opencode.json',
   'src/auth/**',
   'src/payments/**',
   'src/database/**',
   'src/config/**',
   'prisma/schema.prisma',
+  'docs/',
+  'CHANGELOG.md',
+  'SECURITY.md',
+  'CONTRIBUTING.md',
+  'tsconfig.json',
 ]
 
 export const DEFAULT_BLOCKED_COMMANDS = [
@@ -83,14 +86,12 @@ export function initializeControlledProject(projectRoot: string, partial?: Parti
 
   initGates(projectRoot, projectName)
 
-  const createdDocs: string[] = []
-  for (const [name, content] of DOC_TEMPLATES) {
-    const target = join(docsDir, name)
-    if (!existsSync(target)) {
-      writeFileSync(target, content, 'utf-8')
-      createdDocs.push(target)
-    }
-  }
+  // Generate full document set (17 docs) from the docs-generator catalog
+  const createdDocs = generateProjectDocs(
+    hasConfig(projectRoot) ? loadConfig(projectRoot) : { ...DEFAULT_CONFIG, project: projectName },
+    projectRoot,
+    getDocsCatalog().map(d => d.id),
+  )
 
   const baselinePath = resolve(projectRoot, join(CONTROL_DIR, 'baseline.json'))
   if (!existsSync(baselinePath)) {

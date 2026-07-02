@@ -10,7 +10,7 @@ import chokidar, { FSWatcher } from 'chokidar'
 import { readFileSync, existsSync, mkdirSync, copyFileSync } from 'fs'
 import { resolve, relative, join } from 'path'
 import chalk from 'chalk'
-import type { DevSentinelConfig, FileChange } from './types.js'
+import type { DevSentinelConfig, FileChange, Session } from './types.js'
 import { checkScope } from './analyzer.js'
 import { generateDiff, countDiffLines } from './diff.js'
 
@@ -30,12 +30,22 @@ export class FileWatcher {
   private watcher: FSWatcher | null = null
   private snapshots = new Map<string, SnapshotEntry>()
   private pending: PendingBurst | null = null
+  private sessionScope: string[] | null = null
 
   constructor(
     private projectRoot: string,
     private config: DevSentinelConfig,
     private onBurst: (files: FileChange[]) => Promise<void>,
-  ) {}
+    session?: Session,
+  ) {
+    if (session?.allowedScope && session.allowedScope.length > 0) {
+      this.sessionScope = session.allowedScope
+    }
+  }
+
+  setScope(scope: string[]): void {
+    this.sessionScope = scope
+  }
 
   start(): void {
     const ignored = [
@@ -142,6 +152,15 @@ export class FileWatcher {
     return ignoredPatterns.some(p => filepath.startsWith(p + '/') || filepath.includes('/' + p + '/') || filepath === p)
   }
 
+  private isOutOfScope(filepath: string): boolean {
+    if (!this.sessionScope || this.sessionScope.length === 0) return false
+    if (this.isIgnored(filepath)) return false
+    return !this.sessionScope.some(scope => {
+      const normalized = scope.replace(/\/$/, '') + '/'
+      return filepath.startsWith(normalized) || filepath === scope.replace(/\/$/, '')
+    })
+  }
+
   private addToBurst(
     filepath: string,
     before: string,
@@ -149,6 +168,11 @@ export class FileWatcher {
     eventType: 'modified' | 'added' | 'deleted_attempt',
   ): void {
     if (this.isIgnored(filepath)) return
+    if (this.isOutOfScope(filepath)) {
+      console.log(chalk.red.bold(`\n⚠ BLOCKED (out of scope): ${filepath}`))
+      console.log(chalk.gray(`  File outside session scope. Allowed: ${this.sessionScope?.join(', ') ?? 'all'}`))
+      return
+    }
     if (!this.pending) {
       this.pending = { files: new Map(), timer: setTimeout(() => void this.flushBurst(), BURST_WINDOW_MS) }
     } else {

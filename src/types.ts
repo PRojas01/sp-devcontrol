@@ -34,6 +34,9 @@ export interface DevSentinelConfig {
     autoCommit: boolean
     requireMessage: boolean
     maxFilesPerChange: number
+    strictCommands: boolean
+    strictScope: boolean
+    hardTokenCap: boolean
   }
   git: {
     mainBranch: string

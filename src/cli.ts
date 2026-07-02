@@ -37,6 +37,7 @@ import {
   renderPreflightResult,
 } from './preflight.js'
 import { initializeControlledProject } from './project_init.js'
+import { runInitWizard } from './init.js'
 import { createSession, generateSessionId } from './session.js'
 import {
   createSnapshotFromChangeBefore,
@@ -178,6 +179,35 @@ program.command('init')
     console.log(`\nNext: fill in docs/ with real project design, then run "sp-devcontrol project:check"`)
   })
 
+program.command('init:interactive')
+  .description('Interactive guided project initialization — wizard with stack selection, controls, and full docs')
+  .action(async () => {
+    const projectRoot = process.cwd()
+    const config = await runInitWizard(projectRoot)
+    saveConfig(config, projectRoot)
+    const summary = initializeControlledProject(projectRoot, { project: config.project })
+
+    if (summary.gitPresent) {
+      const hookResult = installHooks(projectRoot)
+      if (hookResult.installed.length > 0) {
+        console.log(`Hooks installed: ${hookResult.installed.join(', ')}`)
+      }
+    }
+
+    console.log('\nSP-DevControl initialized with interactive configuration.')
+    console.log(`Project: ${config.project}`)
+    console.log(`Stack: ${config.stack.join(', ')}`)
+    console.log(`Docs created: ${summary.createdDocs.length}`)
+
+    // Auto-inject agent rules after init
+    const injection = buildInjection(config, projectRoot)
+    const written = writeInjectionFiles(injection, projectRoot, config)
+    console.log(`Agent rules injected: ${written.length} files`)
+
+    console.log('\nTo start a governed session:')
+    console.log('  sp-devcontrol session:start --objective "your goal"')
+  })
+
 program.command('project:status')
   .description('Show local governance status for the current project')
   .action(() => {
@@ -295,22 +325,28 @@ program.command('session:start')
   .option('--scope <items...>', 'allowed scope paths')
   .option('--request <text...>', 'user requests to convert into checklist')
   .option('--token-budget <number>', 'session token budget override')
-  .option('--skip-preflight', 'Skip preflight checks (registered in audit)', false)
   .action((options) => {
     const projectRoot = process.cwd()
     const config = loadConfig(projectRoot)
     ensureOperationalDirs(projectRoot)
     const db = openDb(projectRoot)
 
-    if (!options.skipPreflight) {
-      const preflight = runSessionPreflightChecks(projectRoot, db)
-      if (!preflight.passed) {
-        console.log(renderPreflightResult(preflight))
-        console.log('\nSession start blocked. Fix the errors above or use --skip-preflight to bypass.')
-        closeDb()
-        process.exitCode = 1
-        return
-      }
+    const preflight = runSessionPreflightChecks(projectRoot, db)
+    if (!preflight.passed) {
+      console.log(renderPreflightResult(preflight))
+      console.log('\nSession start blocked. Fix the errors above before starting a session.')
+      closeDb()
+      process.exitCode = 1
+      return
+    }
+
+    // Verify agent rules are injected
+    const claudeMd = resolve(projectRoot, 'CLAUDE.md')
+    const cursorRules = resolve(projectRoot, '.cursorrules')
+    if (!existsSync(claudeMd) && !existsSync(cursorRules)) {
+      console.warn('\n⚠ No agent rule files found (CLAUDE.md or .cursorrules).')
+      console.warn('  Run: sp-devcontrol inject')
+      console.warn('  Without agent rules, editors may not respect governance.\n')
     }
 
     const sessionId = generateSessionId()
@@ -692,7 +728,7 @@ program.command('watch:start')
       const result = processChangeBurst(projectRoot, db, currentSession, files, config)
       refreshSessionArtifacts(projectRoot, db, currentSession)
       console.log('\n' + renderBurstSummary(result) + '\n')
-    })
+    }, session)
 
     watcher.start()
     console.log(`Watcher attached to session: ${session.id}`)

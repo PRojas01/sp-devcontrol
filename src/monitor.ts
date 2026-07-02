@@ -21,6 +21,7 @@ import {
   type JsonDb,
   updateSession,
 } from './storage.js'
+import { loadGates } from './gates.js'
 import type {
   AnalysisResult,
   ApprovalRecord,
@@ -47,6 +48,66 @@ export function processChangeBurst(
   files: FileChange[],
   config: DevSentinelConfig,
 ): ProcessedBurst {
+  // Gate enforcement: reject all changes if development gate is not open
+  try {
+    const gates = loadGates(projectRoot)
+    const devGate = gates.gates['development']
+    if (devGate && devGate.status !== 'open' && devGate.status !== 'pending') {
+      const controlViolations: ControlViolation[] = [{
+        controlId: 'gate-development-blocked',
+        severity: 'error',
+        message: `Development gate is ${devGate.status}: ${devGate.reason ?? 'blocked by human'}`,
+      }]
+      return {
+        change: {
+          id: '',
+          sessionId: session.id,
+          agent: session.agent,
+          files,
+          depsAdded: [],
+          depsInvalid: [],
+          riskLevel: 'HIGH',
+          status: 'rejected',
+          detectedAt: new Date().toISOString(),
+          controlViolations,
+        },
+        analysis: { riskLevel: 'HIGH', depsAdded: [], depsInvalid: [], filesOutOfScope: [], deleteAttempts: [], warnings: ['Gate blocked'] },
+        approvals: [],
+        protectedMatches: [],
+        requiresApproval: true,
+      }
+    }
+  } catch { /* gates file may not exist yet */ }
+
+  // Hard token budget cap: reject changes if budget exceeded
+  if (config.rules.hardTokenCap && session.tokenBudget && session.tokenEstimate !== undefined) {
+    if (session.tokenEstimate >= session.tokenBudget) {
+      const controlViolations: ControlViolation[] = [{
+        controlId: 'token-budget-exceeded',
+        severity: 'error',
+        message: `Session token budget exhausted (${session.tokenEstimate}/${session.tokenBudget}). Start a new session.`,
+      }]
+      return {
+        change: {
+          id: '',
+          sessionId: session.id,
+          agent: session.agent,
+          files,
+          depsAdded: [],
+          depsInvalid: [],
+          riskLevel: 'HIGH',
+          status: 'rejected',
+          detectedAt: new Date().toISOString(),
+          controlViolations,
+        },
+        analysis: { riskLevel: 'HIGH', depsAdded: [], depsInvalid: [], filesOutOfScope: [], deleteAttempts: [], warnings: ['Token budget exhausted'] },
+        approvals: [],
+        protectedMatches: [],
+        requiresApproval: true,
+      }
+    }
+  }
+
   const approvals = listApprovals(database, session.id)
   const analysis = analyzeChanges(files, config, projectRoot)
   const controlViolations: ControlViolation[] = []

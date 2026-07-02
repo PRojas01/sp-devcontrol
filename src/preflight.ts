@@ -219,7 +219,7 @@ function checkDocsExist(projectRoot: string): PreflightCheck[] {
     return {
       id: `doc-exists-${doc.file}`,
       category: 'docs' as const,
-      severity: 'warning' as GateSeverity,
+      severity: 'error' as GateSeverity,
       passed: exists,
       message: exists ? `${doc.label} exists` : `${doc.label} missing (${doc.file})`,
       fix: `Create docs/${doc.file} with project ${doc.label.toLowerCase()} content`,
@@ -234,7 +234,7 @@ function checkDocsContent(projectRoot: string): PreflightCheck[] {
       return {
         id: `doc-content-${doc.file}`,
         category: 'docs' as const,
-        severity: 'warning' as GateSeverity,
+        severity: 'error' as GateSeverity,
         passed: false,
         message: `${doc.label} not found — cannot validate content`,
       }
@@ -247,7 +247,7 @@ function checkDocsContent(projectRoot: string): PreflightCheck[] {
     return {
       id: `doc-content-${doc.file}`,
       category: 'docs' as const,
-      severity: 'warning' as GateSeverity,
+      severity: 'error' as GateSeverity,
       passed,
       message: passed
         ? `${doc.label} has real content`

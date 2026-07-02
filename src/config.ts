@@ -33,6 +33,9 @@ export const DEFAULT_CONFIG: DevSentinelConfig = {
     autoCommit: true,
     requireMessage: false,
     maxFilesPerChange: 20,
+    strictCommands: true,
+    strictScope: true,
+    hardTokenCap: true,
   },
   git: {
     mainBranch: 'main',

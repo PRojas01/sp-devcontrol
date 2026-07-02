@@ -9,6 +9,7 @@
 import { readFileSync, existsSync, writeFileSync } from 'fs'
 import { resolve, normalize } from 'path'
 import { CONTROL_DIR } from './paths.js'
+import { loadConfig } from './config.js'
 import type { ApprovalRecord } from './types.js'
 
 const COMMAND_PREFIXES = ['sudo ', 'npx ', 'command ', 'time ', 'env ', 'nohup ', 'nice ', 'eval ', 'xargs ', 'timeout ', 'stdbuf ', 'bundled ']
@@ -223,6 +224,20 @@ export function evaluateCommandRisk(projectRoot: string, command: string, approv
       decision: 'REVIEW',
       reason: 'Command changes dependencies, infra or data-related behavior',
     }
+  }
+
+  // Strict mode: unknown commands require review
+  try {
+    const config = loadConfig(projectRoot)
+    if (config.rules.strictCommands) {
+      return {
+        command,
+        decision: 'REVIEW',
+        reason: 'Strict mode: unknown command requires human review',
+      }
+    }
+  } catch {
+    // No config — use default behavior
   }
 
   return {

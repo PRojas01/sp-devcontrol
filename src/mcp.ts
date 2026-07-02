@@ -18,6 +18,7 @@ import { getDb, insertSession, listSessions, getChangesForSession, updateChangeS
 import type { JsonDb } from "./storage.js";
 import { evaluatePathRisk, evaluateCommandRisk } from "./policy.js";
 import { loadConfig, hasConfig } from "./config.js";
+import { VERSION } from "./version.js";
 import { DB_PATH } from "./paths.js";
 import { runPreflightChecks } from "./preflight.js";
 import { generateSessionId, createSession } from "./session.js";
@@ -42,7 +43,7 @@ function getMcpDb(projectRoot: string): JsonDb {
 function buildMcpServer(defaultProjectRoot?: string): McpServer {
   const server = new McpServer({
     name: "sp-devcontrol",
-    version: "2.0.0",
+    version: VERSION,
   });
 
   function resolveRoot(params: { projectRoot?: string }): string {
