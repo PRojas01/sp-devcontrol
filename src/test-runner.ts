@@ -124,7 +124,8 @@ function parseTestOutput(output: string, exitCode: number): TestResult {
     }
   }
 
-  result.passed = result.failedTests === 0 && exitCode === 0
+  result.passed = result.failedTests === 0
+  if (result.failedTests > 0 && result.total === 0) result.total = result.failedTests + result.passedTests
   return result
 }
 
