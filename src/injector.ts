@@ -23,6 +23,7 @@ export function buildInjection(config: DevSentinelConfig, projectRoot?: string):
     instructions = instructions.replace('{{project_name}}', config.project)
     instructions = instructions.replace('{{scope_allowed}}', config.scope.allowed.join(', '))
     instructions = instructions.replace('{{scope_protected}}', config.scope.protected.join(', '))
+    instructions = instructions.replace('{{coverage_threshold}}', String(config.testing?.coverageThreshold ?? 50))
     return instructions
   })
 

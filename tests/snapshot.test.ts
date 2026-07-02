@@ -82,8 +82,8 @@ describe('rollback edge cases', () => {
     const dir = tempProject()
     initializeControlledProject(dir, { project: 'test-project' })
 
-    const restored = rollbackSession(dir, [])
-    expect(restored).toEqual([])
+    const { restoredFiles } = rollbackSession(dir, [])
+    expect(restoredFiles).toEqual([])
 
     rmSync(dir, { recursive: true, force: true })
   })
@@ -120,9 +120,9 @@ describe('rollback edge cases', () => {
       files: [{ filepath: 'src/b.ts', eventType: 'modified' as const, linesAdded: 1, linesRemoved: 1, outOfScope: false, diffContent: '', snapshotBefore: 'b-before\n', snapshotAfter: 'b-after\n' }],
     }
 
-    const restored = rollbackSession(dir, [change1, change2, change3])
+    const { restoredFiles } = rollbackSession(dir, [change1, change2, change3])
     // rollbackSession uses earliest-seen snapshotBefore per file
-    expect(restored.sort()).toEqual(['src/a.ts', 'src/b.ts'])
+    expect(restoredFiles.sort()).toEqual(['src/a.ts', 'src/b.ts'])
     expect(readFileSync(fileA, 'utf-8')).toBe('v1\n')
     expect(readFileSync(fileB, 'utf-8')).toBe('b-before\n')
 
@@ -201,8 +201,8 @@ describe('snapshot and rollback', () => {
     writeFileSync(target, 'export const value = 3\n', 'utf-8')
 
     expect(snapshotCandidateFilesForSession(db, session.id)).toEqual(['src/example.ts'])
-    const restored = rollbackSession(dir, getChangesForSession(db, session.id))
-    expect(restored).toEqual(['src/example.ts'])
+    const { restoredFiles } = rollbackSession(dir, getChangesForSession(db, session.id))
+    expect(restoredFiles).toEqual(['src/example.ts'])
     expect(readFileSync(target, 'utf-8')).toBe('export const value = 1\n')
 
     closeDb()

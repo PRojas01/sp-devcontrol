@@ -10,6 +10,7 @@ import { Command } from 'commander'
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'fs'
 import { VERSION } from './version.js'
 import { join, resolve } from 'path'
+import chalk from 'chalk'
 import { generateComplianceReport, renderComplianceMarkdown } from './compliance.js'
 import { DEFAULT_CONFIG, ensureConfigDir, hasConfig, loadConfig, saveConfig } from './config.js'
 import { GitManager } from './git.js'
@@ -38,6 +39,7 @@ import {
 } from './preflight.js'
 import { initializeControlledProject } from './project_init.js'
 import { runInitWizard } from './init.js'
+import { runTests } from './test-runner.js'
 import { createSession, generateSessionId } from './session.js'
 import {
   createSnapshotFromChangeBefore,
@@ -471,14 +473,50 @@ program.command('session:change:approve')
   .requiredOption('--change-id <id>')
   .option('--message <text>', 'decision message', 'approved from CLI')
   .option('--yes', 'Skip interactive TUI and approve immediately (non-interactive / CI mode)', false)
+  .option('--dry-run', 'Preview the approval without executing', false)
   .action(async (options) => {
     const projectRoot = process.cwd()
     const config = loadConfig(projectRoot)
+
+    if (options.dryRun) {
+      console.log(JSON.stringify({ dryRun: true, changeId: options.changeId, message: 'Preview mode — no changes applied' }, null, 2))
+      return
+    }
+
     const db = openDb(projectRoot)
     const change = getChange(db, options.changeId)
     if (!change) throw new Error(`Change not found: ${options.changeId}`)
     const session = getSession(db, change.sessionId)
     if (!session) throw new Error(`Session not found: ${change.sessionId}`)
+
+    // Test gate: run tests if control is active
+    if (config.controls.testing.includes('test-gate')) {
+      console.log(chalk.cyan('\n🧪 Running tests before approval (test-gate active)...'))
+      const testResult = await runTests(projectRoot)
+      if (!testResult.passed) {
+        console.log(chalk.red(`\n✖ Test gate BLOCKED: ${testResult.failedTests} test(s) failed out of ${testResult.total}`))
+        for (const f of testResult.failures.slice(0, 5)) {
+          console.log(chalk.red(`  ✖ ${f.name}`))
+        }
+        if (testResult.failures.length > 5) {
+          console.log(chalk.gray(`  ... and ${testResult.failures.length - 5} more failures`))
+        }
+        closeDb()
+        return
+      }
+      console.log(chalk.green(`  ✓ ${testResult.passedTests}/${testResult.total} tests passed\n`))
+    }
+
+    // Coverage check if control is active
+    if (config.controls.testing.includes('test-coverage') && config.testing.coverageThreshold > 0 && config.testing.coverageCommand) {
+      console.log(chalk.cyan('\n📊 Checking coverage threshold...'))
+      const coverageResult = await runTests(projectRoot, { command: config.testing.coverageCommand.split(' ')[0], args: config.testing.coverageCommand.split(' ').slice(1) })
+      if (coverageResult.coverage && coverageResult.coverage.lines < config.testing.coverageThreshold) {
+        console.log(chalk.yellow(`  ⚠ Coverage ${coverageResult.coverage.lines}% is below threshold ${config.testing.coverageThreshold}%`))
+      } else if (coverageResult.coverage) {
+        console.log(chalk.green(`  ✓ Coverage ${coverageResult.coverage.lines}% meets threshold ${config.testing.coverageThreshold}%`))
+      }
+    }
 
     const analysis = analyzeChanges(change.files, config, projectRoot)
     const validation = validateChangeset(change.files, config)
@@ -496,14 +534,21 @@ program.command('session:change:approve')
         'rollback',
         change.id,
       )
-      const restoredFiles = rollbackChange(projectRoot, change)
+      const { restoredFiles, verification } = rollbackChange(projectRoot, change)
+
+      const mismatches = verification.filter(v => !v.match)
+      if (mismatches.length > 0) {
+        console.error(chalk.red(`  ✖ Rollback verification failed for ${mismatches.length} file(s)`))
+      }
 
       let rejectedBranch = ''
       const git = new GitManager(projectRoot)
       if (await git.isRepo()) {
         try {
           rejectedBranch = await git.saveRejectedBranch(change, config)
-        } catch {
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          console.error(chalk.yellow(`  ⚠ Failed to save rejected branch: ${msg}`))
           rejectedBranch = ''
         }
       }
@@ -514,7 +559,7 @@ program.command('session:change:approve')
       refreshSessionArtifacts(projectRoot, db, session)
       closeDb()
 
-      console.log(JSON.stringify({ changeId: change.id, status: 'rejected', restoredFiles, rejectedBranch }, null, 2))
+      console.log(JSON.stringify({ changeId: change.id, status: 'rejected', restoredFiles, verification: mismatches.length > 0 ? mismatches : undefined, rejectedBranch }, null, 2))
       return
     }
 
@@ -525,7 +570,9 @@ program.command('session:change:approve')
     if (config.rules.autoCommit && await git.isRepo()) {
       try {
         commitHash = await git.commitApproved(change, config)
-      } catch {
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(chalk.yellow(`  ⚠ Auto-commit failed: ${msg}`))
         commitHash = ''
       }
     }
@@ -544,7 +591,12 @@ program.command('session:change:reject')
   .description('Reject one detected change, rollback its files and persist rejection metadata')
   .requiredOption('--change-id <id>')
   .option('--reason <text>', 'rejection reason', 'rejected from CLI')
+  .option('--dry-run', 'Preview rejection without executing', false)
   .action(async (options) => {
+    if (options.dryRun) {
+      console.log(JSON.stringify({ dryRun: true, changeId: options.changeId, message: 'Preview mode — no rollback executed' }, null, 2))
+      return
+    }
     const projectRoot = process.cwd()
     const config = loadConfig(projectRoot)
     const db = openDb(projectRoot)
@@ -574,14 +626,21 @@ program.command('session:change:reject')
       'rollback',
       change.id,
     )
-    const restoredFiles = rollbackChange(projectRoot, change)
+    const { restoredFiles, verification } = rollbackChange(projectRoot, change)
+
+    const mismatches = verification.filter(v => !v.match)
+    if (mismatches.length > 0) {
+      console.error(chalk.red(`  ✖ Rollback verification failed for ${mismatches.length} file(s)`))
+    }
 
     let rejectedBranch = ''
     const git = new GitManager(projectRoot)
     if (await git.isRepo()) {
       try {
         rejectedBranch = await git.saveRejectedBranch(change, config)
-      } catch {
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(chalk.yellow(`  ⚠ Failed to save rejected branch: ${msg}`))
         rejectedBranch = ''
       }
     }
@@ -592,7 +651,7 @@ program.command('session:change:reject')
     refreshSessionArtifacts(projectRoot, db, session)
     closeDb()
 
-    console.log(JSON.stringify({ changeId: change.id, status: 'rejected', restoredFiles, rejectedBranch }, null, 2))
+    console.log(JSON.stringify({ changeId: change.id, status: 'rejected', restoredFiles, verification: mismatches.length > 0 ? mismatches : undefined, rejectedBranch }, null, 2))
   })
 
 program.command('snapshot:create')
@@ -628,7 +687,13 @@ program.command('session:rollback')
   .requiredOption('--session <id>')
   .option('--change-id <id>')
   .option('--label <text>', 'snapshot label before rollback', 'pre-rollback')
+  .option('--dry-run', 'Preview rollback without executing', false)
   .action((options) => {
+    if (options.dryRun) {
+      console.log(JSON.stringify({ dryRun: true, sessionId: options.session, changeId: options.changeId ?? 'all', message: 'Preview mode — no rollback executed' }, null, 2))
+      return
+    }
+
     const projectRoot = process.cwd()
     const db = openDb(projectRoot)
     const session = getSession(db, options.session)
@@ -647,23 +712,31 @@ program.command('session:rollback')
         'rollback',
         change.id,
       )
-      const restoredFiles = rollbackChange(projectRoot, change)
+      const { restoredFiles, verification } = rollbackChange(projectRoot, change)
+      const mismatches = verification.filter(v => !v.match)
+      if (mismatches.length > 0) {
+        console.error(chalk.red(`  ✖ Rollback verification failed for ${mismatches.length} file(s)`))
+      }
       updateChangeStatus(db, change.id, 'rejected', undefined, undefined, 'rolled back from CLI')
       session.rejected += 1
       updateSession(db, session)
       refreshSessionArtifacts(projectRoot, db, session)
       closeDb()
-      console.log(JSON.stringify({ scope: 'change', changeId: change.id, restoredFiles }, null, 2))
+      console.log(JSON.stringify({ scope: 'change', changeId: change.id, restoredFiles, verification: mismatches.length > 0 ? mismatches : undefined }, null, 2))
       return
     }
 
     const changes = getChangesForSession(db, session.id)
     const filepaths = [...new Set(changes.flatMap(change => change.files.map(file => file.filepath)))]
     createSnapshotFromCurrentState(projectRoot, db, session, `${options.label}-${session.id}`, filepaths, 'rollback')
-    const restoredFiles = rollbackSession(projectRoot, changes)
+    const { restoredFiles, verification: sessionVerification } = rollbackSession(projectRoot, changes)
+    const sessionMismatches = sessionVerification.filter(v => !v.match)
+    if (sessionMismatches.length > 0) {
+      console.error(chalk.red(`  ✖ Session rollback verification failed for ${sessionMismatches.length} file(s)`))
+    }
     refreshSessionArtifacts(projectRoot, db, session)
     closeDb()
-    console.log(JSON.stringify({ scope: 'session', sessionId: session.id, restoredFiles }, null, 2))
+    console.log(JSON.stringify({ scope: 'session', sessionId: session.id, restoredFiles, verification: sessionMismatches.length > 0 ? sessionMismatches : undefined }, null, 2))
   })
 
 program.command('session:approval:list')

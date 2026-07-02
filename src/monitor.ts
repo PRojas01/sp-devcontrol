@@ -77,7 +77,11 @@ export function processChangeBurst(
         requiresApproval: true,
       }
     }
-  } catch { /* gates file may not exist yet */ }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    const warnPath = join(projectRoot, '.devcontrol', 'reports', `${session.id}-gate-errors.log`)
+    appendFileSync(warnPath, `${new Date().toISOString()} gate-check: ${msg}\n`, 'utf-8')
+  }
 
   // Hard token budget cap: reject changes if budget exceeded
   if (config.rules.hardTokenCap && session.tokenBudget && session.tokenEstimate !== undefined) {

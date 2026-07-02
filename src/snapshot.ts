@@ -7,6 +7,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { createHash } from 'crypto'
 import { dirname, join, resolve } from 'path'
 import { CONTROL_DIR } from './paths.js'
 import { getChangesForSession, insertSnapshot, type JsonDb } from './storage.js'
@@ -123,14 +124,42 @@ export function createSnapshotFromChangeBefore(
   })
 }
 
-export function rollbackChange(projectRoot: string, change: ChangeSet): string[] {
-  for (const file of change.files) {
-    writeFileState(projectRoot, file.filepath, file.snapshotBefore)
-  }
-  return change.files.map(file => file.filepath)
+function fileChecksum(filepath: string): string {
+  if (!existsSync(filepath)) return 'DELETED'
+  return createHash('sha256').update(readFileSync(filepath, 'utf-8')).digest('hex').slice(0, 16)
 }
 
-export function rollbackSession(projectRoot: string, changes: ChangeSet[]): string[] {
+export interface RollbackVerification {
+  filepath: string
+  expectedChecksum: string
+  actualChecksum: string
+  match: boolean
+}
+
+export function rollbackChange(projectRoot: string, change: ChangeSet): { restoredFiles: string[]; verification: RollbackVerification[] } {
+  const verification: RollbackVerification[] = []
+  for (const file of change.files) {
+    writeFileState(projectRoot, file.filepath, file.snapshotBefore)
+    const expected = createHash('sha256').update(file.snapshotBefore).digest('hex').slice(0, 16)
+    const actual = fileChecksum(resolve(projectRoot, file.filepath))
+    verification.push({
+      filepath: file.filepath,
+      expectedChecksum: expected,
+      actualChecksum: actual,
+      match: expected === actual,
+    })
+  }
+  const mismatches = verification.filter(v => !v.match)
+  if (mismatches.length > 0) {
+    const reportDir = resolve(projectRoot, CONTROL_DIR, 'reports')
+    if (!existsSync(reportDir)) mkdirSync(reportDir, { recursive: true })
+    const reportPath = join(reportDir, `rollback-verify-${change.id}-${Date.now()}.json`)
+    writeFileSync(reportPath, JSON.stringify({ changeId: change.id, mismatches }, null, 2), 'utf-8')
+  }
+  return { restoredFiles: change.files.map(file => file.filepath), verification }
+}
+
+export function rollbackSession(projectRoot: string, changes: ChangeSet[]): { restoredFiles: string[]; verification: RollbackVerification[] } {
   const earliest = new Map<string, string>()
   for (const change of changes) {
     for (const file of change.files) {
@@ -140,10 +169,28 @@ export function rollbackSession(projectRoot: string, changes: ChangeSet[]): stri
     }
   }
 
+  const verification: RollbackVerification[] = []
   for (const [filepath, content] of earliest.entries()) {
     writeFileState(projectRoot, filepath, content)
+    const expected = createHash('sha256').update(content).digest('hex').slice(0, 16)
+    const actual = fileChecksum(resolve(projectRoot, filepath))
+    verification.push({
+      filepath,
+      expectedChecksum: expected,
+      actualChecksum: actual,
+      match: expected === actual,
+    })
   }
-  return [...earliest.keys()]
+
+  const mismatches = verification.filter(v => !v.match)
+  if (mismatches.length > 0) {
+    const reportDir = resolve(projectRoot, CONTROL_DIR, 'reports')
+    if (!existsSync(reportDir)) mkdirSync(reportDir, { recursive: true })
+    const reportPath = join(reportDir, `rollback-verify-session-${changes[0]?.sessionId ?? 'unknown'}-${Date.now()}.json`)
+    writeFileSync(reportPath, JSON.stringify({ sessionId: changes[0]?.sessionId, mismatches }, null, 2), 'utf-8')
+  }
+
+  return { restoredFiles: [...earliest.keys()], verification }
 }
 
 export function snapshotCandidateFilesForSession(database: JsonDb, sessionId: string): string[] {

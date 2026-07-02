@@ -640,6 +640,29 @@ If you need an escape hatch, use 'unknown' with type guards instead of 'any'.`,
 5. Deliver code + test in the same changeset`,
   },
 
+  {
+    id: 'test-gate',
+    name: 'Test gate — run tests before allowing approvals',
+    category: 'testing',
+    description: 'Executes the project test suite before a change can be approved. Blocks approval if tests fail.',
+    norm: 'Continuous Integration · Test-Driven Development',
+    mode: 'block',
+    agentInstructions: `Before approving any change, run the project test suite (npm test).
+If tests fail, do NOT approve the change. Report failures to the user and suggest fixes first.
+The test gate ensures no broken code enters the project.`,
+  },
+  {
+    id: 'test-coverage',
+    name: 'Coverage threshold — minimum code coverage required',
+    category: 'testing',
+    description: 'Validates that test coverage meets the configured threshold. Flags violations if coverage drops below minimum.',
+    norm: 'ISO 25010 · Test Coverage Best Practices',
+    mode: 'validate',
+    agentInstructions: `Maintain minimum code coverage of {{coverage_threshold}}%.
+When adding new code, ensure corresponding tests cover the new paths.
+If coverage drops below threshold, add tests before proceeding.`,
+  },
+
   // Documentation
   {
     id: 'doc-readme',
