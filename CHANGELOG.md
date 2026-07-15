@@ -5,7 +5,21 @@ All notable changes to SP-DevControl are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.1.0] — 2026-06-26
+## [2.1.0] — 2026-07-15
+
+### Changed
+
+- **Editor configs simplified** — `.cursorrules`, `.windsurfrules`, `copilot-instructions.md` reduced from verbose to compact (294→97 lines total)
+- **CLAUDE.md rewritten** — restored security invariants, test/build commands, key constraints; removed redundant per-rule explanations
+- **opencode.json** — removed hardcoded provider URLs (ollama, moonshot, minimax); now uses `$schema` + minimal MCP-only config (user runs `sp-devcontrol inject` to regenerate)
+- README.md test count updated: 93 → 115 (18 test files)
+
+### Security
+
+- Removed hardcoded internal IP addresses and API endpoints from opencode.json
+- Audit artifacts (`AUDIT_SUMMARY.md`, `SP-DevControl_Audit_Plan.jsonl`) added to .gitignore
+
+### Added (from 2026-06-26)
 
 ### Added
 

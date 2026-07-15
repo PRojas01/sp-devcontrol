@@ -4,7 +4,7 @@
 [![CI](https://github.com/PRojas01/sp-devcontrol/actions/workflows/ci.yml/badge.svg)](https://github.com/PRojas01/sp-devcontrol/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/tests-93%20passing-brightgreen)](#testing)
+[![Tests](https://img.shields.io/badge/tests-115%20passing-brightgreen)](#testing)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-blue)](https://github.com/PRojas01/sp-devcontrol/releases)
 
 **Local governance layer for AI-assisted development.**
@@ -472,7 +472,7 @@ project:check                    Run preflight checks
 ## Testing
 
 ```bash
-npm test              # 93 tests, 16 files
+npm test              # 115 tests, 18 files
 npm run typecheck     # TypeScript strict, 0 errors
 npm run build         # Compile TypeScript → dist/
 npm run test:watch    # Watch mode

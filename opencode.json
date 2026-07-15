@@ -1,30 +1,10 @@
 {
-  "model": {
-    "modelID": "qwen2.5-coder:7b",
-    "providerID": "ollama"
-  },
-  "provider": {
-    "ollama": {
-      "apiKey": "ollama",
-      "baseURL": "http://192.168.18.100:11434/v1"
-    },
-    "moonshot": {
-      "apiKey": "${MOONSHOT_API_KEY}",
-      "baseURL": "https://api.moonshot.cn/v1"
-    },
-    "minimax": {
-      "apiKey": "${MINIMAX_API_KEY}",
-      "baseURL": "https://api.minimax.chat/v1"
-    }
-  },
-  "mcpServers": {
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
     "devcontrol": {
-      "type": "sse",
-      "url": "http://localhost:7893/mcp"
-    },
-    "redia-agents": {
-      "type": "sse",
-      "url": "http://localhost:7895/mcp"
+      "type": "remote",
+      "url": "http://localhost:7893/mcp",
+      "enabled": true
     }
   }
 }

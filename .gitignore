@@ -20,3 +20,8 @@ opencode.json
 .mcp.json
 .cursor/mcp.json
 .windsurf/mcp.json
+
+# Internal audit artifacts — not for public repo
+AUDIT_SUMMARY.md
+SP-DevControl_Audit_Plan.jsonl
+docs/internal/
