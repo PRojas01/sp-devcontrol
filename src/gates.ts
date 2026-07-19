@@ -9,6 +9,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
 import { CONTROL_DIR } from './paths.js'
+import { verifyHumanApprovalToken } from './human-approval.js'
 
 export type GatePhase = 'design' | 'development' | 'review' | 'publish'
 export type GateStatus = 'pending' | 'open' | 'blocked'
@@ -26,6 +27,10 @@ export interface GatesFile {
   projectName: string
   updatedAt: string
   gates: Record<GatePhase, GateRecord>
+}
+
+export interface ApproveGateOptions {
+  humanApprovalToken?: string
 }
 
 const PHASES: GatePhase[] = ['design', 'development', 'review', 'publish']
@@ -75,7 +80,18 @@ export function isGateOpen(projectRoot: string, phase: GatePhase): boolean {
   return getGate(projectRoot, phase).status === 'open'
 }
 
-export function approveGate(projectRoot: string, phase: GatePhase, approvedBy: string, notes?: string): GatesFile {
+export function approveGate(
+  projectRoot: string,
+  phase: GatePhase,
+  approvedBy: string,
+  notes?: string,
+  options: ApproveGateOptions = {},
+): GatesFile {
+  const verification = verifyHumanApprovalToken(options.humanApprovalToken)
+  if (!verification.ok) {
+    throw new Error(verification.reason)
+  }
+
   const data = loadGates(projectRoot)
   data.gates[phase] = { phase, status: 'open', updatedAt: new Date().toISOString(), approvedBy, notes }
   saveGates(projectRoot, data)

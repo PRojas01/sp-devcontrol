@@ -12,11 +12,16 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { createApiServer } from '../src/api.js'
-import { closeDb } from '../src/storage.js'
+import { closeDb, getDb, getChange, insertChange, insertSession } from '../src/storage.js'
+import { DB_PATH } from '../src/paths.js'
+import { createSession } from '../src/session.js'
+import { HUMAN_APPROVAL_TOKEN_ENV } from '../src/human-approval.js'
+import type { ChangeSet } from '../src/types.js'
 
 let server: http.Server
 let port: number
 let tmpDir: string
+let previousHumanApprovalToken: string | undefined
 
 interface ApiResponse {
   status: number
@@ -65,6 +70,7 @@ async function apiRequest(
 }
 
 beforeEach(async () => {
+  previousHumanApprovalToken = process.env[HUMAN_APPROVAL_TOKEN_ENV]
   tmpDir = await mkdtemp(join(tmpdir(), 'devcontrol-int-test-'))
   await new Promise<void>((resolve, reject) => {
     server = createApiServer(0)
@@ -78,6 +84,11 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  if (previousHumanApprovalToken === undefined) {
+    delete process.env[HUMAN_APPROVAL_TOKEN_ENV]
+  } else {
+    process.env[HUMAN_APPROVAL_TOKEN_ENV] = previousHumanApprovalToken
+  }
   await new Promise<void>((resolve, reject) => {
     server.close(err => { if (err) reject(err); else resolve() })
   })
@@ -85,6 +96,43 @@ afterEach(async () => {
   closeDb()
   await rm(tmpDir, { recursive: true, force: true })
 })
+
+function createPendingChange(sessionId: string, changeId: string): ChangeSet {
+  return {
+    id: changeId,
+    sessionId,
+    agent: 'test-agent',
+    files: [{
+      filepath: 'src/example.ts',
+      eventType: 'modified',
+      linesAdded: 1,
+      linesRemoved: 0,
+      outOfScope: false,
+      diffContent: '+const value = 1',
+      snapshotBefore: '',
+      snapshotAfter: 'const value = 1',
+    }],
+    depsAdded: [],
+    depsInvalid: [],
+    riskLevel: 'LOW',
+    status: 'pending',
+    detectedAt: new Date().toISOString(),
+    controlViolations: [],
+  }
+}
+
+async function seedPendingApiChange(): Promise<{ sessionId: string; changeId: string }> {
+  await apiRequest(server, 'POST', '/projects/register', { path: tmpDir })
+  const db = getDb(join(tmpDir, DB_PATH))
+  const sessionId = 'ds-20260719-001'
+  const changeId = `${sessionId}.001`
+  const session = createSession(sessionId, tmpDir, 'test-agent', 'watch')
+  session.status = 'active'
+  session.totalChanges = 1
+  insertSession(db, session)
+  insertChange(db, createPendingChange(sessionId, changeId))
+  return { sessionId, changeId }
+}
 
 describe('API Integration', () => {
   it('GET /health returns 200 with status ok and version 2.1.0', async () => {
@@ -125,6 +173,7 @@ describe('API Integration', () => {
   })
 
   it('GET /sessions with project that has no existing DB returns empty array', async () => {
+    await apiRequest(server, 'POST', '/projects/register', { path: tmpDir })
     const { status, data } = await apiRequest(
       server,
       'GET',
@@ -138,6 +187,7 @@ describe('API Integration', () => {
   })
 
   it('POST /sessions/start without objective returns 400', async () => {
+    await apiRequest(server, 'POST', '/projects/register', { path: tmpDir })
     const { status, data } = await apiRequest(
       server,
       'POST',
@@ -151,6 +201,7 @@ describe('API Integration', () => {
   })
 
   it('POST /sessions/start with valid objective returns 201 with session id', async () => {
+    await apiRequest(server, 'POST', '/projects/register', { path: tmpDir })
     const { status, data } = await apiRequest(
       server,
       'POST',
@@ -164,5 +215,42 @@ describe('API Integration', () => {
     expect(d.id.length).toBeGreaterThan(0)
     expect(d.objective).toBe('Integration test session')
     expect(d.status).toBe('active')
+  })
+
+  it('POST /sessions/:id/changes/:cid/approve rejects missing human token', async () => {
+    process.env[HUMAN_APPROVAL_TOKEN_ENV] = 'human-secret'
+    const { sessionId, changeId } = await seedPendingApiChange()
+
+    const { status, data } = await apiRequest(
+      server,
+      'POST',
+      `/sessions/${sessionId}/changes/${changeId}/approve`,
+      { message: 'approved via test' },
+      { 'X-Project-Path': tmpDir },
+    )
+
+    expect(status).toBe(401)
+    const d = data as { error: string }
+    expect(d.error).toMatch(/token is required/i)
+
+    const db = getDb(join(tmpDir, DB_PATH))
+    expect(getChange(db, changeId)?.status).toBe('pending')
+  })
+
+  it('POST /sessions/:id/changes/:cid/approve accepts valid human token header', async () => {
+    process.env[HUMAN_APPROVAL_TOKEN_ENV] = 'human-secret'
+    const { sessionId, changeId } = await seedPendingApiChange()
+
+    const { status, data } = await apiRequest(
+      server,
+      'POST',
+      `/sessions/${sessionId}/changes/${changeId}/approve`,
+      { message: 'approved via test' },
+      { 'X-Project-Path': tmpDir, 'X-Human-Approval-Token': 'human-secret' },
+    )
+
+    expect(status).toBe(200)
+    const d = data as { change: { status: string } }
+    expect(d.change.status).toBe('approved')
   })
 })

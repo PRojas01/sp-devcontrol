@@ -55,7 +55,6 @@ import {
   getChangesForSession,
   getDb,
   getSession,
-  insertApproval,
   insertChecklistItems,
   insertSession,
   insertSessionRequest,
@@ -77,6 +76,8 @@ import inquirer from 'inquirer'
 import { validateChangeset } from './validator.js'
 import { FileWatcher } from './watcher.js'
 import { approveGate, getGateSummaryTable, initGates, isGateOpen, loadGates, rejectGate, resetGate, type GatePhase } from './gates.js'
+import { HUMAN_APPROVAL_TOKEN_ENV, verifyHumanApprovalToken } from './human-approval.js'
+import { grantSessionApproval } from './session-approval.js'
 
 // Daemon worker mode: when spawned by startDaemon(), start the API server inline
 if (process.argv[2] === '__daemon_worker__') {
@@ -111,6 +112,29 @@ function sessionApprovals(projectRoot: string, sessionId?: string): ApprovalReco
   if (!sessionId) return []
   const db = openDb(projectRoot)
   return listApprovals(db, sessionId)
+}
+
+async function resolveHumanApprovalToken(providedToken?: string): Promise<string | undefined> {
+  if (providedToken) return providedToken
+  if (!process.stdin.isTTY) return undefined
+
+  const { token } = await inquirer.prompt<{ token: string }>([{
+    type: 'password',
+    name: 'token',
+    message: `Human approval token (${HUMAN_APPROVAL_TOKEN_ENV})`,
+    mask: '*',
+  }])
+
+  return token ?? ''
+}
+
+async function requireHumanApprovalToken(providedToken?: string): Promise<string> {
+  const token = await resolveHumanApprovalToken(providedToken)
+  const verification = verifyHumanApprovalToken(token)
+  if (!verification.ok) {
+    throw new Error(`${verification.reason} Set ${HUMAN_APPROVAL_TOKEN_ENV} out of band and provide it with --human-token or the TTY prompt.`)
+  }
+  return token ?? ''
 }
 
 function refreshSessionArtifacts(projectRoot: string, db: ReturnType<typeof openDb>, session: Session): void {
@@ -203,8 +227,8 @@ program.command('init:interactive')
 
     // Auto-inject agent rules after init
     const injection = buildInjection(config, projectRoot)
-    const written = writeInjectionFiles(injection, projectRoot, config)
-    console.log(`Agent rules injected: ${written.length} files`)
+    const injectResults = writeInjectionFiles(injection, projectRoot, config)
+    console.log(`Agent rules injected: ${injectResults.filter(r => r.action !== 'skipped-custom').length} files`)
 
     console.log('\nTo start a governed session:')
     console.log('  sp-devcontrol session:start --objective "your goal"')
@@ -306,7 +330,9 @@ program.command('policy:command:review:remove')
 program.command('policy:command:approve')
   .description('Approve one command pattern explicitly')
   .requiredOption('--command <command>')
-  .action((options) => {
+  .option('--human-token <token>', `Required; must match ${HUMAN_APPROVAL_TOKEN_ENV}`)
+  .action(async (options) => {
+    await requireHumanApprovalToken(options.humanToken)
     const result = approveCommand(process.cwd(), options.command)
     console.log(JSON.stringify(result, null, 2))
   })
@@ -473,6 +499,7 @@ program.command('session:change:approve')
   .requiredOption('--change-id <id>')
   .option('--message <text>', 'decision message', 'approved from CLI')
   .option('--yes', 'Skip interactive TUI and approve immediately (non-interactive / CI mode)', false)
+  .option('--human-token <token>', `Required with --yes; must match ${HUMAN_APPROVAL_TOKEN_ENV}`)
   .option('--dry-run', 'Preview the approval without executing', false)
   .action(async (options) => {
     const projectRoot = process.cwd()
@@ -481,6 +508,12 @@ program.command('session:change:approve')
     if (options.dryRun) {
       console.log(JSON.stringify({ dryRun: true, changeId: options.changeId, message: 'Preview mode — no changes applied' }, null, 2))
       return
+    }
+
+    if (options.yes) {
+      await requireHumanApprovalToken(options.humanToken)
+    } else if (!process.stdin.isTTY) {
+      throw new Error(`Interactive change approval requires a TTY. For non-interactive approval use --yes with --human-token matching ${HUMAN_APPROVAL_TOKEN_ENV}.`)
     }
 
     const db = openDb(projectRoot)
@@ -754,18 +787,16 @@ program.command('session:approval:grant')
   .requiredOption('--type <type>')
   .requiredOption('--target <target>')
   .option('--reason <text>', 'approval rationale', 'manual approval from CLI')
-  .action((options) => {
+  .option('--human-token <token>', `Required; must match ${HUMAN_APPROVAL_TOKEN_ENV}`)
+  .action(async (options) => {
+    const humanApprovalToken = await requireHumanApprovalToken(options.humanToken)
     const db = openDb(process.cwd())
-    const session = getSession(db, options.session)
-    if (!session) throw new Error(`Session not found: ${options.session}`)
-
-    const approval = insertApproval(db, {
+    const approval = grantSessionApproval(db, {
       sessionId: options.session,
       approvalType: options.type,
       target: options.target,
-      scope: 'session',
       reason: options.reason,
-      createdBy: 'user',
+      humanApprovalToken,
     })
     console.log(JSON.stringify(approval, null, 2))
     closeDb()
@@ -894,9 +925,15 @@ program.command('inject')
     const projectRoot = process.cwd()
     const config = loadConfig(projectRoot)
     const injection = buildInjection(config, projectRoot)
-    const written = writeInjectionFiles(injection, projectRoot, config)
+    const results = writeInjectionFiles(injection, projectRoot, config)
+    const written = results.filter(r => r.action === 'written' || r.action === 'created')
+    const skipped = results.filter(r => r.action === 'skipped-custom')
     console.log('Agent rule files generated:')
-    for (const file of written) console.log(`  ✓ ${file}`)
+    for (const r of written) console.log(`  ✓ ${r.path}`)
+    if (skipped.length > 0) {
+      console.log('\nSkipped (custom content preserved):')
+      for (const r of skipped) console.log(`  ⊘ ${r.path}`)
+    }
   })
 
 // ─── Compliance Report ──────────────────────────────────────────────────────
@@ -1205,9 +1242,11 @@ program.command('gate:approve')
   .requiredOption('--phase <phase>', 'Phase to approve: design|development|review|publish')
   .requiredOption('--by <name>', 'Name of the person approving')
   .option('--notes <text>', 'Optional notes')
-  .action((opts) => {
+  .option('--human-token <token>', `Required; must match ${HUMAN_APPROVAL_TOKEN_ENV}`)
+  .action(async (opts) => {
+    const humanApprovalToken = await requireHumanApprovalToken(opts.humanToken)
     const root = process.cwd()
-    const data = approveGate(root, opts.phase as GatePhase, opts.by, opts.notes)
+    const data = approveGate(root, opts.phase as GatePhase, opts.by, opts.notes, { humanApprovalToken })
     console.log(`✅ Gate approved: ${opts.phase} (by ${opts.by})`)
     console.log(getGateSummaryTable(data))
   })
