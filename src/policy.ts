@@ -12,7 +12,16 @@ import { CONTROL_DIR } from './paths.js'
 import { loadConfig } from './config.js'
 import type { ApprovalRecord } from './types.js'
 
-const COMMAND_PREFIXES = ['sudo ', 'npx ', 'command ', 'time ', 'env ', 'nohup ', 'nice ', 'eval ', 'xargs ', 'timeout ', 'stdbuf ', 'bundled ']
+const COMMAND_PREFIXES = ['sudo ', 'npx ', 'command ', 'time ', 'env ', 'nohup ', 'nice ', 'xargs ', 'timeout ', 'stdbuf ', 'bundled ']
+
+const HARDCODED_BLOCKED = [
+  'rm -rf', 'rm -fr',
+  'git reset --hard', 'git push --force', 'git push -f',
+  'DROP TABLE', 'DROP DATABASE', 'TRUNCATE', 'DELETE FROM',
+  'FORMAT', 'mkfs', 'dd if=',
+  ':(){ :|:& };:',
+  'eval ',
+]
 
 function normalizeCommand(cmd: string): string {
   let normalized = cmd.trim().replace(/\s+/g, ' ')
@@ -200,6 +209,23 @@ export function evaluateCommandRisk(projectRoot: string, command: string, approv
     }
   }
 
+  const hardMatch = HARDCODED_BLOCKED.find(entry => commandMatches(command, entry))
+  if (hardMatch) {
+    return {
+      command,
+      decision: 'BLOCK',
+      reason: `Command matches hardcoded safety block: ${hardMatch}`,
+    }
+  }
+
+  if (/\$\(.*\)/.test(command) || /`[^`]+`/.test(command)) {
+    return {
+      command,
+      decision: 'BLOCK',
+      reason: 'Command contains command substitution ($() or backticks) — potential injection',
+    }
+  }
+
   const matched = policy.blockedCommands.find(entry => commandMatches(command, entry))
   if (matched) {
     return {
@@ -257,5 +283,8 @@ function matchesPattern(filepath: string, pattern: string): boolean {
   if (pattern.endsWith('/**')) {
     return filepath.startsWith(pattern.slice(0, -3))
   }
-  return filepath === pattern || filepath.startsWith(pattern.replace(/\*\*/g, ''))
+  if (pattern.includes('*')) {
+    return filepath === pattern || filepath.startsWith(pattern.replace(/\*\*/g, ''))
+  }
+  return filepath === pattern || filepath === pattern + '/'
 }

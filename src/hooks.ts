@@ -21,21 +21,48 @@ ${HOOK_MARKER}
 DB_PATH=".devcontrol/storage/devcontrol.db.json"
 
 if [ ! -f "$DB_PATH" ]; then
-  exit 0
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║  SP-DevControl: COMMIT BLOCKED                             ║"
+  echo "║  DevControl state could not be verified.                   ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
+  echo ""
+  echo "  .devcontrol/storage/devcontrol.db.json is missing."
+  echo ""
+  echo "Initialize or repair DevControl before committing."
+  echo ""
+  exit 1
 fi
 
 PENDING_HIGH=$(node -e "
   try {
     const db = JSON.parse(require('fs').readFileSync('$DB_PATH', 'utf-8'));
     const pending = (db.changes || []).filter(c =>
-      c.status === 'pending' && (c.riskLevel === 'HIGH' || c.controlViolations.some(v => v.severity === 'error'))
+      c.status === 'pending' && (c.riskLevel === 'HIGH' || (c.controlViolations || []).some(v => v.severity === 'error'))
     );
     if (pending.length > 0) {
       console.log('BLOCKED');
       pending.forEach(c => console.error('  [' + c.riskLevel + '] ' + c.id + ' — ' + c.files.map(f => f.filepath).join(', ')));
     }
-  } catch(e) { /* allow commit if DB unreadable */ }
+  } catch(e) {
+    console.log('DB_UNREADABLE');
+    console.error('  Unable to read DevControl DB: ' + e.message);
+  }
 " 2>&1)
+
+if echo "$PENDING_HIGH" | grep -q "DB_UNREADABLE"; then
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║  SP-DevControl: COMMIT BLOCKED                             ║"
+  echo "║  DevControl state could not be verified.                   ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
+  echo ""
+  echo "$PENDING_HIGH" | grep -v "DB_UNREADABLE"
+  echo ""
+  echo "Fix the DevControl DB or reinstall hooks before committing."
+  echo ""
+  exit 1
+fi
 
 if echo "$PENDING_HIGH" | grep -q "BLOCKED"; then
   echo ""
@@ -48,7 +75,43 @@ if echo "$PENDING_HIGH" | grep -q "BLOCKED"; then
   echo ""
   echo "To approve:  sp-devcontrol session:change:approve --change-id <id>"
   echo "To reject:   sp-devcontrol session:change:reject --change-id <id>"
-  echo "To bypass:   git commit --no-verify  (WARNING: skips all governance hooks)"
+  echo ""
+  exit 1
+fi
+
+GATES_FILE=".devcontrol/gates.json"
+if [ ! -f "$GATES_FILE" ]; then
+  COMMIT_GATE_STATUS="MISSING"
+else
+  COMMIT_GATE_STATUS=$(node -e "
+    try {
+      const g = JSON.parse(require('fs').readFileSync('$GATES_FILE', 'utf-8'));
+      const development = g.gates && g.gates.development;
+      if (!development || development.status !== 'open') {
+        console.log('NOT_OPEN');
+      }
+    } catch(e) {
+      console.log('GATE_UNREADABLE');
+      console.error('  Unable to read DevControl gates: ' + e.message);
+    }
+  " 2>&1)
+fi
+
+if [ "$COMMIT_GATE_STATUS" != "" ]; then
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║  SP-DevControl: COMMIT BLOCKED                             ║"
+  echo "║  Development gate is not open.                             ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
+  echo ""
+  if [ "$COMMIT_GATE_STATUS" = "MISSING" ]; then
+    echo "  .devcontrol/gates.json is missing."
+  else
+    echo "$COMMIT_GATE_STATUS" | grep -v "NOT_OPEN" | grep -v "GATE_UNREADABLE"
+  fi
+  echo ""
+  echo "A human must approve the development gate before committing:"
+  echo "  sp-devcontrol gate:approve --phase development --by \"Your Name\""
   echo ""
   exit 1
 fi
@@ -62,7 +125,17 @@ ${HOOK_MARKER}
 DB_PATH=".devcontrol/storage/devcontrol.db.json"
 
 if [ ! -f "$DB_PATH" ]; then
-  exit 0
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║  SP-DevControl: PUSH BLOCKED                               ║"
+  echo "║  DevControl state could not be verified.                   ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
+  echo ""
+  echo "  .devcontrol/storage/devcontrol.db.json is missing."
+  echo ""
+  echo "Initialize or repair DevControl before pushing."
+  echo ""
+  exit 1
 fi
 
 ISSUES=$(node -e "
@@ -77,8 +150,25 @@ ISSUES=$(node -e "
       console.log('BLOCKED');
       issues.forEach(i => console.error('  - ' + i));
     }
-  } catch(e) { /* allow push if DB unreadable */ }
+  } catch(e) {
+    console.log('DB_UNREADABLE');
+    console.error('  Unable to read DevControl DB: ' + e.message);
+  }
 " 2>&1)
+
+if echo "$ISSUES" | grep -q "DB_UNREADABLE"; then
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║  SP-DevControl: PUSH BLOCKED                               ║"
+  echo "║  DevControl state could not be verified.                   ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
+  echo ""
+  echo "$ISSUES" | grep -v "DB_UNREADABLE"
+  echo ""
+  echo "Fix the DevControl DB or reinstall hooks before pushing."
+  echo ""
+  exit 1
+fi
 
 if echo "$ISSUES" | grep -q "BLOCKED"; then
   echo ""
@@ -90,28 +180,45 @@ if echo "$ISSUES" | grep -q "BLOCKED"; then
   echo "$ISSUES" | grep -v "BLOCKED"
   echo ""
   echo "Resolve all pending changes and close sessions before pushing."
-  echo "To bypass:   git push --no-verify  (WARNING: skips all governance hooks)"
   echo ""
   exit 1
 fi
 
 GATES_FILE=".devcontrol/gates.json"
-if [ -f "$GATES_FILE" ]; then
+if [ ! -f "$GATES_FILE" ]; then
+  REVIEW_STATUS="MISSING"
+else
   REVIEW_STATUS=$(node -e "
     try {
       const g = JSON.parse(require('fs').readFileSync('$GATES_FILE', 'utf-8'));
       const review = g.gates && g.gates.review;
-      if (review && review.status !== 'open') {
+      if (!review || review.status !== 'open') {
         console.log('NOT_OPEN');
       }
-    } catch(e) { /* ignore */ }
-  " 2>/dev/null)
-  if [ "$REVIEW_STATUS" = "NOT_OPEN" ]; then
-    echo ""
-    echo "⚠  SP-DevControl WARNING: review gate not approved."
-    echo "   Run: sp-devcontrol gate:approve --phase review --by \"Your Name\""
-    echo ""
+    } catch(e) {
+      console.log('GATE_UNREADABLE');
+      console.error('  Unable to read DevControl gates: ' + e.message);
+    }
+  " 2>&1)
+fi
+
+if [ "$REVIEW_STATUS" != "" ]; then
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║  SP-DevControl: PUSH BLOCKED                               ║"
+  echo "║  Review gate is not open.                                  ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
+  echo ""
+  if [ "$REVIEW_STATUS" = "MISSING" ]; then
+    echo "  .devcontrol/gates.json is missing."
+  else
+    echo "$REVIEW_STATUS" | grep -v "NOT_OPEN" | grep -v "GATE_UNREADABLE"
   fi
+  echo ""
+  echo "A human must approve the review gate before pushing:"
+  echo "  sp-devcontrol gate:approve --phase review --by \"Your Name\""
+  echo ""
+  exit 1
 fi
 `
 

@@ -30,6 +30,10 @@ describe('git hooks', () => {
     const preCommit = readFileSync(join(dir, '.git', 'hooks', 'pre-commit'), 'utf-8')
     expect(preCommit).toContain('SP-DevControl managed hook')
     expect(preCommit).toContain('COMMIT BLOCKED')
+    expect(preCommit).toContain('DB_UNREADABLE')
+    expect(preCommit).toContain('DevControl state could not be verified')
+    expect(preCommit).toContain('Development gate is not open')
+    expect(preCommit).not.toContain('--no-verify')
     rmSync(dir, { recursive: true, force: true })
   })
 
@@ -39,6 +43,14 @@ describe('git hooks', () => {
     const status = checkHooksInstalled(dir)
     expect(status.installed).toHaveLength(3)
     expect(status.missing).toHaveLength(0)
+
+    const prePush = readFileSync(join(dir, '.git', 'hooks', 'pre-push'), 'utf-8')
+    expect(prePush).toContain('DB_UNREADABLE')
+    expect(prePush).toContain('DevControl state could not be verified')
+    expect(prePush).toContain('Review gate is not open')
+    expect(prePush).toContain('exit 1')
+    expect(prePush).not.toContain('WARNING: review gate')
+    expect(prePush).not.toContain('--no-verify')
     rmSync(dir, { recursive: true, force: true })
   })
 

@@ -23,6 +23,7 @@ import { DB_PATH } from "./paths.js";
 import { runPreflightChecks } from "./preflight.js";
 import { generateSessionId, createSession } from "./session.js";
 import { generateComplianceReport, renderComplianceMarkdown } from "./compliance.js";
+import { HUMAN_APPROVAL_TOKEN_ENV, verifyHumanApprovalToken } from "./human-approval.js";
 
 const DEFAULT_HTTP_PORT = 7893;
 const MAX_MCP_SESSIONS = 50;
@@ -176,16 +177,29 @@ function buildMcpServer(defaultProjectRoot?: string): McpServer {
   server.registerTool(
     "devcontrol_approve_change",
     {
-      description: "Approve a pending change by ID.",
+      description: `Non-interactive change approval request. This MCP tool is not human approval by itself; it requires an out-of-band human token matching ${HUMAN_APPROVAL_TOKEN_ENV} and is disabled when that variable is not configured.`,
       inputSchema: {
         changeId: z.string().describe("Change ID to approve (e.g. ds-20260625-001-c01)"),
         message: z.string().optional().describe("Optional approval note"),
+        humanApprovalToken: z.string().optional().describe(`Required out-of-band human approval token. Must match ${HUMAN_APPROVAL_TOKEN_ENV}.`),
         projectRoot: z.string().optional().describe("Absolute path to project root (defaults to server CWD)"),
       },
     },
     async (params) => {
-      const { changeId, message } = params;
+      const { changeId, message, humanApprovalToken } = params;
       const projectRoot = resolveRoot(params);
+
+      const humanApproval = verifyHumanApprovalToken(humanApprovalToken);
+      if (!humanApproval.ok) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Change \`${changeId}\` was not approved. ${humanApproval.reason}`,
+          }],
+          isError: true,
+        };
+      }
+
       const db = getMcpDb(projectRoot);
       const change = getChange(db, changeId);
 
@@ -412,7 +426,17 @@ export async function startMcpHttp(
       }
 
       const chunks: Buffer[] = [];
-      req.on("data", (chunk: Buffer) => chunks.push(chunk));
+      let totalSize = 0;
+      const MAX_BODY_BYTES = 1024 * 1024; // 1MB
+      req.on("data", (chunk: Buffer) => {
+        totalSize += chunk.length;
+        if (totalSize > MAX_BODY_BYTES) {
+          res.writeHead(413).end("Request body too large (max 1MB)");
+          req.destroy();
+          return;
+        }
+        chunks.push(chunk);
+      });
       req.on("end", async () => {
         const body = chunks.length > 0 ? JSON.parse(Buffer.concat(chunks).toString()) : undefined;
         try {

@@ -1,0 +1,143 @@
+{
+  "name": "sp-devcontrol-editor",
+  "displayName": "SP-DevControl",
+  "description": "VS Code-compatible control panel for SP-DevControl governance, gates, compliance and MCP setup.",
+  "version": "2.1.0",
+  "publisher": "solucionespro",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "devcontrol",
+    "governance",
+    "mcp",
+    "cursor",
+    "windsurf"
+  ],
+  "activationEvents": [
+    "onView:sp-devcontrol.panel",
+    "onCommand:sp-devcontrol.openPanel",
+    "onCommand:sp-devcontrol.projectStatus",
+    "onCommand:sp-devcontrol.gateStatus",
+    "onCommand:sp-devcontrol.projectCheck",
+    "onCommand:sp-devcontrol.complianceReport",
+    "onCommand:sp-devcontrol.inject",
+    "onCommand:sp-devcontrol.daemonStart",
+    "onCommand:sp-devcontrol.daemonStatus",
+    "onCommand:sp-devcontrol.daemonStop",
+    "onCommand:sp-devcontrol.startMcpHttp",
+    "onCommand:sp-devcontrol.writeMcpConfig"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "SP-DevControl",
+      "properties": {
+        "spDevcontrol.cliPath": {
+          "type": "string",
+          "default": "sp-devcontrol",
+          "description": "Path or command used to run the SP-DevControl CLI."
+        },
+        "spDevcontrol.mcpPort": {
+          "type": "number",
+          "default": 7893,
+          "description": "Port used when starting the DevControl MCP HTTP server from the extension."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sp-devcontrol",
+          "title": "DevControl",
+          "icon": "media/devcontrol.svg"
+        }
+      ]
+    },
+    "views": {
+      "sp-devcontrol": [
+        {
+          "id": "sp-devcontrol.panel",
+          "name": "Control"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "sp-devcontrol.openPanel",
+        "title": "DevControl: Open Panel",
+        "category": "DevControl"
+      },
+      {
+        "command": "sp-devcontrol.projectStatus",
+        "title": "DevControl: Project Status",
+        "category": "DevControl"
+      },
+      {
+        "command": "sp-devcontrol.gateStatus",
+        "title": "DevControl: Gate Status",
+        "category": "DevControl"
+      },
+      {
+        "command": "sp-devcontrol.projectCheck",
+        "title": "DevControl: Run Preflight",
+        "category": "DevControl"
+      },
+      {
+        "command": "sp-devcontrol.complianceReport",
+        "title": "DevControl: Compliance Report",
+        "category": "DevControl"
+      },
+      {
+        "command": "sp-devcontrol.inject",
+        "title": "DevControl: Inject Editor Config",
+        "category": "DevControl"
+      },
+      {
+        "command": "sp-devcontrol.daemonStart",
+        "title": "DevControl: Start Daemon",
+        "category": "DevControl"
+      },
+      {
+        "command": "sp-devcontrol.daemonStatus",
+        "title": "DevControl: Daemon Status",
+        "category": "DevControl"
+      },
+      {
+        "command": "sp-devcontrol.daemonStop",
+        "title": "DevControl: Stop Daemon",
+        "category": "DevControl"
+      },
+      {
+        "command": "sp-devcontrol.startMcpHttp",
+        "title": "DevControl: Start MCP HTTP Server",
+        "category": "DevControl"
+      },
+      {
+        "command": "sp-devcontrol.writeMcpConfig",
+        "title": "DevControl: Write MCP Config",
+        "category": "DevControl"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "sp-devcontrol.projectStatus",
+          "when": "view == sp-devcontrol.panel",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "validate": "node -e \"JSON.parse(require('fs').readFileSync('package.json', 'utf8')); console.log('extension/package.json valid')\"",
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.2.2"
+  }
+}

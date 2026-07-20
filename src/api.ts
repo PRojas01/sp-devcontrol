@@ -32,6 +32,7 @@ import { DB_PATH } from './paths.js'
 import { loadConfig, hasConfig } from './config.js'
 import { generateSessionId, createSession } from './session.js'
 import type { Session } from './types.js'
+import { verifyHumanApprovalToken } from './human-approval.js'
 
 const DEFAULT_PORT = 7891
 const GLOBAL_PROJECTS_FILE = join(homedir(), '.devcontrol', 'projects.json')
@@ -71,7 +72,18 @@ function writeProjectsRegistry(projects: ProjectEntry[]): void {
 
 function resolveProjectRoot(req: Request): string {
   const header = req.headers['x-project-path']
-  if (typeof header === 'string' && header.trim()) return resolve(header.trim())
+  if (typeof header === 'string' && header.trim()) {
+    const candidate = resolve(header.trim())
+    if (!existsSync(candidate)) {
+      throw new Error(`Project path does not exist: ${candidate}`)
+    }
+    const projects = readProjectsRegistry()
+    const isRegistered = projects.some(p => candidate === p.path || candidate.startsWith(p.path + '/'))
+    if (!isRegistered && projects.length > 0) {
+      throw new Error(`Project path is not registered: ${candidate}. Register it first via POST /projects/register.`)
+    }
+    return candidate
+  }
   return process.cwd()
 }
 
@@ -93,7 +105,7 @@ function corsLocalhostMiddleware(req: Request, res: Response, next: NextFunction
 
   if (origin) res.setHeader('Access-Control-Allow-Origin', origin)
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Project-Path, Authorization')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Project-Path, Authorization, X-Human-Approval-Token')
   res.setHeader('Vary', 'Origin')
 
   if (req.method === 'OPTIONS') {
@@ -116,6 +128,25 @@ function buildAuthMiddleware(token: string) {
   }
 }
 
+function humanApprovalTokenFromRequest(req: Request): string | undefined {
+  const body = req.body as { humanApprovalToken?: unknown } | undefined
+  if (typeof body?.humanApprovalToken === 'string') return body.humanApprovalToken
+
+  const header = req.headers['x-human-approval-token']
+  if (typeof header === 'string') return header
+  if (Array.isArray(header)) return header[0]
+  return undefined
+}
+
+function requireHumanApprovalForHttp(req: Request, res: Response): boolean {
+  const verification = verifyHumanApprovalToken(humanApprovalTokenFromRequest(req))
+  if (verification.ok) return true
+
+  const status = verification.reason?.includes('not configured') ? 403 : 401
+  res.status(status).json({ error: verification.reason })
+  return false
+}
+
 export function createApiServer(port: number, token?: string): http.Server {
   const app = express()
 
@@ -135,7 +166,8 @@ export function createApiServer(port: number, token?: string): http.Server {
     try {
       res.json(readProjectsRegistry())
     } catch (err) {
-      res.status(500).json({ error: String(err) })
+      const status = err instanceof Error && err.message.includes('Project path') ? 400 : 500
+      res.status(status).json({ error: String(err) })
     }
   })
 
@@ -171,7 +203,8 @@ export function createApiServer(port: number, token?: string): http.Server {
       writeProjectsRegistry(projects)
       res.status(201).json(entry)
     } catch (err) {
-      res.status(500).json({ error: String(err) })
+      const status = err instanceof Error && err.message.includes('Project path') ? 400 : 500
+      res.status(status).json({ error: String(err) })
     }
   })
 
@@ -182,7 +215,8 @@ export function createApiServer(port: number, token?: string): http.Server {
       const limit = parseInt(String(req.query['limit'] ?? '20'), 10)
       res.json(listSessions(db, Math.min(isNaN(limit) ? 20 : Math.max(1, limit), 200)))
     } catch (err) {
-      res.status(500).json({ error: String(err) })
+      const status = err instanceof Error && err.message.includes('Project path') ? 400 : 500
+      res.status(status).json({ error: String(err) })
     }
   })
 
@@ -211,7 +245,8 @@ export function createApiServer(port: number, token?: string): http.Server {
       insertSession(db, session)
       res.status(201).json(session)
     } catch (err) {
-      res.status(500).json({ error: String(err) })
+      const status = err instanceof Error && err.message.includes('Project path') ? 400 : 500
+      res.status(status).json({ error: String(err) })
     }
   })
 
@@ -226,7 +261,8 @@ export function createApiServer(port: number, token?: string): http.Server {
       }
       res.json(session)
     } catch (err) {
-      res.status(500).json({ error: String(err) })
+      const status = err instanceof Error && err.message.includes('Project path') ? 400 : 500
+      res.status(status).json({ error: String(err) })
     }
   })
 
@@ -251,7 +287,8 @@ export function createApiServer(port: number, token?: string): http.Server {
       updateSession(db, updated)
       res.json(updated)
     } catch (err) {
-      res.status(500).json({ error: String(err) })
+      const status = err instanceof Error && err.message.includes('Project path') ? 400 : 500
+      res.status(status).json({ error: String(err) })
     }
   })
 
@@ -266,12 +303,15 @@ export function createApiServer(port: number, token?: string): http.Server {
       }
       res.json(getChangesForSession(db, req.params['id']!))
     } catch (err) {
-      res.status(500).json({ error: String(err) })
+      const status = err instanceof Error && err.message.includes('Project path') ? 400 : 500
+      res.status(status).json({ error: String(err) })
     }
   })
 
   app.post('/sessions/:id/changes/:cid/approve', (req: Request, res: Response) => {
     try {
+      if (!requireHumanApprovalForHttp(req, res)) return
+
       const projectRoot = resolveProjectRoot(req)
       const db = getProjectDb(projectRoot)
       const { id, cid } = req.params as { id: string; cid: string }
@@ -312,7 +352,8 @@ export function createApiServer(port: number, token?: string): http.Server {
 
       res.json({ change: getChange(db, cid), approval })
     } catch (err) {
-      res.status(500).json({ error: String(err) })
+      const status = err instanceof Error && err.message.includes('Project path') ? 400 : 500
+      res.status(status).json({ error: String(err) })
     }
   })
 
@@ -348,7 +389,8 @@ export function createApiServer(port: number, token?: string): http.Server {
 
       res.json({ change: getChange(db, cid) })
     } catch (err) {
-      res.status(500).json({ error: String(err) })
+      const status = err instanceof Error && err.message.includes('Project path') ? 400 : 500
+      res.status(status).json({ error: String(err) })
     }
   })
 
@@ -392,7 +434,8 @@ export function createApiServer(port: number, token?: string): http.Server {
         stack: config?.stack ?? [],
       })
     } catch (err) {
-      res.status(500).json({ error: String(err) })
+      const status = err instanceof Error && err.message.includes('Project path') ? 400 : 500
+      res.status(status).json({ error: String(err) })
     }
   })
 

@@ -1,0 +1,12 @@
+{
+  "name": "sp-devcontrol",
+  "version": "2.1.0",
+  "description": "Gobernanza local para sesiones de código asistidas por IA: gates de autorización, aprobación de cambios, políticas de riesgo, compliance y rollback.",
+  "mcpServers": {
+    "devcontrol": {
+      "type": "sse",
+      "url": "http://localhost:7893/mcp"
+    }
+  },
+  "skills": "./.claude/skills"
+}

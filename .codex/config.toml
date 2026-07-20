@@ -1,0 +1,6 @@
+[mcp_servers.devcontrol]
+command = "sp-devcontrol"
+args = ["mcp"]
+
+[mcp_servers.devcontrol.env]
+DEVCONTROL_PROJECT_ROOT = "${CLAUDE_PROJECT_DIR:-.}"
