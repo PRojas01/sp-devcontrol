@@ -1,5 +1,5 @@
 /**
- * SP-DevControl v2.0.0
+ * SP-DevControl v2.1.1
  * Local governance layer for AI-assisted development
  *
  * Copyright (c) 2026 Pedro Rojas — SolucionesPro (Ecuador)

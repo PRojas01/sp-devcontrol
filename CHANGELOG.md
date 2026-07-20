@@ -5,6 +5,16 @@ All notable changes to SP-DevControl are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.1.1] — 2026-07-20
+
+### Security
+
+- **Human approval token out-of-band** — `DEVCONTROL_HUMAN_APPROVAL_TOKEN` env var required for all non-interactive approvals (CLI `--human-token`, MCP `humanApprovalToken`, API `X-Human-Approval-Token` header). Fail-closed: disabled when the variable is not set. Closes the auto-approval bypass found during red-team testing. (`src/human-approval.ts`)
+
+### Added
+
+- VS Code/Cursor/Windsurf extension source under `extension/` with Activity Bar tab, Webview control panel, CLI command invocations, daemon controls, and MCP config helper.
+
 ## [2.1.0] — 2026-07-15
 
 ### Changed
@@ -88,5 +98,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Project initialization and configuration
 - Git integration via simple-git
 
+[2.1.1]: https://github.com/PRojas01/sp-devcontrol/releases/tag/v2.1.1
 [2.0.0]: https://github.com/PRojas01/sp-devcontrol/releases/tag/v2.0.0
 [1.0.0]: https://github.com/PRojas01/sp-devcontrol/releases/tag/v1.0.0

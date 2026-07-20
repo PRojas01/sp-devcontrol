@@ -23,7 +23,7 @@ DevControl gives you:
 - **Policy enforcement** — protect critical paths and block dangerous commands (`git reset --hard`, `rm -rf`, `DROP TABLE` blocked by default)
 - **Change approval workflow** — every change detected by a watched session needs your approval or rejection before it goes into git
 - **Rollback** — undo any change or entire session back to the captured before-state
-- **Compliance engine** — 36 controls mapped to OWASP, RGPD, ISO 27001, CWE, SLSA
+- **Compliance engine** — 38 controls mapped to OWASP, RGPD, ISO 27001, CWE, SLSA
 - **Universal MCP** — works with every major AI editor out of the box via MCP server
 
 No other tool enforces governance across the full agentic development lifecycle. DevControl fills that gap.
@@ -49,6 +49,8 @@ chmod +x devcontrol && sudo mv devcontrol /usr/local/bin/
 
 # Windows x64 — download devcontrol-win-x64.exe from the Releases page
 ```
+
+> **CLI-only package.** SP-DevControl ships no public JS/TS API — it's used exclusively through the `sp-devcontrol`/`devcontrol` commands above (or the REST/MCP servers they start). There is intentionally no `main`/`exports` entry point in `package.json` to import as a library.
 
 ---
 
@@ -200,6 +202,20 @@ Or add to `.claude/mcp.json`:
 
 `sp-devcontrol inject` writes `.cursorrules`, `.windsurfrules`, and the MCP config files. Open your project and the rules apply automatically.
 
+### VS Code / Cursor / Windsurf extension
+
+DevControl also ships a VS Code-compatible extension source in `extension/`. It adds a DevControl Activity Bar tab with a control panel for `project:status`, gates, preflight, compliance, editor config injection, daemon controls, and MCP setup.
+
+```bash
+cd extension
+npm run package
+code --install-extension sp-devcontrol-editor-2.1.0.vsix
+```
+
+The generated VSIX works in VS Code and VS Code forks such as Cursor and Windsurf. The extension is an adapter over the installed CLI; install the CLI first with `npm install -g sp-devcontrol`.
+
+For full per-editor setup, see [INSTALL_DEVCONTROL.md](INSTALL_DEVCONTROL.md).
+
 ---
 
 ## Policy Engine
@@ -302,7 +318,7 @@ Rollback safety guarantees:
 
 ## Compliance Reports
 
-36 controls mapped to OWASP A01–A10, RGPD Art. 25/32, ISO 27001, CWE, and SLSA.
+38 controls mapped to OWASP A01–A10, RGPD Art. 25/32, ISO 27001, CWE, and SLSA.
 
 ```bash
 sp-devcontrol report:compliance
@@ -321,7 +337,7 @@ sp-devcontrol hooks:install
 
 # The pre-push hook:
 #   - blocks push if there are open unresolved sessions
-#   - warns if the review gate is not approved
+#   - blocks push if the review gate is not approved
 #   - shows a DevControl status banner
 
 sp-devcontrol hooks:status
@@ -485,6 +501,7 @@ npm run test:watch    # Watch mode
 See [SECURITY.md](SECURITY.md) for the vulnerability disclosure process.
 
 Security invariants (do not revert):
+- `DEVCONTROL_HUMAN_APPROVAL_TOKEN` — out-of-band human approval token required for all non-interactive approvals (CLI `--human-token`, MCP `humanApprovalToken`, API `X-Human-Approval-Token` header). Fail-closed: if the env var is not set, non-interactive approval is disabled.
 - `commandMatches()` — exact token prefix matching, not `.includes()` (prevents bypass)
 - `resolve()+startsWith(root+'/')` — path traversal blocked in both policy and snapshot
 - Bearer token required on all API and MCP endpoints except `/health`

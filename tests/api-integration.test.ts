@@ -135,12 +135,12 @@ async function seedPendingApiChange(): Promise<{ sessionId: string; changeId: st
 }
 
 describe('API Integration', () => {
-  it('GET /health returns 200 with status ok and version 2.1.0', async () => {
+  it('GET /health returns 200 with status ok and version 2.1.1', async () => {
     const { status, data } = await apiRequest(server, 'GET', '/health')
     expect(status).toBe(200)
     const d = data as { status: string; version: string }
     expect(d.status).toBe('ok')
-    expect(d.version).toBe('2.1.0')
+    expect(d.version).toBe('2.1.1')
   })
 
   it('POST /projects/register with non-existent path returns 400', async () => {

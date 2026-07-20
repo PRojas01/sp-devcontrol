@@ -96,7 +96,7 @@ describe('injector', () => {
     expect(result.claudeMd).toContain('[Architecture] SOLID')
     expect(result.claudeMd).toContain('NEVER write API keys in code.')
     expect(result.claudeMd).toContain('Single Responsibility principle.')
-    expect(result.claudeMd).toContain('SP-DevControl 2.1.0')
+    expect(result.claudeMd).toContain('SP-DevControl 2.1.1')
   })
 
   it('generates .cursorrules with authorized scope and core rules', () => {

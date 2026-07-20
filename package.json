@@ -1,16 +1,19 @@
 {
   "name": "sp-devcontrol",
-  "version": "2.1.0",
-  "description": "Local governance layer for AI-assisted development — human authorization gates, policy enforcement, change approval, rollback, compliance and universal MCP integration",
+  "version": "2.1.1",
+  "description": "Local governance layer for AI-assisted development \u2014 human authorization gates, policy enforcement, change approval, rollback, compliance and universal MCP integration",
   "type": "module",
   "bin": {
-    "sp-devcontrol": "./dist/cli.js",
-    "devcontrol": "./dist/cli.js"
+    "sp-devcontrol": "dist/cli.js",
+    "devcontrol": "dist/cli.js"
   },
   "files": [
     "dist/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "extension/",
+    "CHANGELOG.md",
+    "INSTALL_DEVCONTROL.md"
   ],
   "scripts": {
     "dev": "node dist/cli.js",
@@ -44,7 +47,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/PRojas01/sp-devcontrol.git"
+    "url": "git+https://github.com/PRojas01/sp-devcontrol.git"
   },
   "keywords": [
     "governance",
@@ -90,5 +93,9 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/PRojas01/sp-devcontrol/issues"
+  },
+  "homepage": "https://github.com/PRojas01/sp-devcontrol#readme"
 }

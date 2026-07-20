@@ -2,6 +2,7 @@ node_modules/
 dist/
 bundle/
 release/
+*.vsix
 *.db
 *.db-journal
 *.log
