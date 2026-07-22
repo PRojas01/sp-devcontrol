@@ -78,6 +78,7 @@ import { FileWatcher } from './watcher.js'
 import { approveGate, getGateSummaryTable, initGates, isGateOpen, loadGates, rejectGate, resetGate, type GatePhase } from './gates.js'
 import { HUMAN_APPROVAL_TOKEN_ENV, verifyHumanApprovalToken } from './human-approval.js'
 import { grantSessionApproval } from './session-approval.js'
+import { fetchLlmgraphContext, isLlmgraphEnabled, renderLlmgraphSection } from './llmgraph-context.js'
 
 // Daemon worker mode: when spawned by startDaemon(), start the API server inline
 if (process.argv[2] === '__daemon_worker__') {
@@ -486,11 +487,27 @@ program.command('session:changes:list')
 program.command('session:change:show')
   .description('Show one detected change with details')
   .requiredOption('--change-id <id>')
-  .action((options) => {
+  .option('--with-context [flag]', 'Enable/disable llmgraph context (enabled by default if llmgraph is present)')
+  .action(async (options) => {
     const db = openDb(process.cwd())
     const change = getChange(db, options.changeId)
     if (!change) throw new Error(`Change not found: ${options.changeId}`)
     console.log(JSON.stringify(serializeChange(change), null, 2))
+    const withContext = options.withContext === 'false' ? false
+      : options.withContext === 'true' || options.withContext === undefined ? true
+      : true
+    if (isLlmgraphEnabled(withContext)) {
+      try {
+        const ctxResult = await fetchLlmgraphContext(process.cwd(), change)
+        const section = renderLlmgraphSection(ctxResult)
+        if (section) {
+          console.log('\n---')
+          console.log(section)
+        }
+      } catch {
+        // fail-open
+      }
+    }
     closeDb()
   })
 
